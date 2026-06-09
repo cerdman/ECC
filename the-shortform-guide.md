@@ -37,7 +37,7 @@ ECC still ships a `commands/` layer, but it is best thought of as legacy slash-e
 
 ## Hooks
 
-Hooks are trigger-based automations that fire on specific events. Unlike skills, they're constricted to tool calls and lifecycle events.
+Hooks are trigger-based automations that fire on specific events. Unlike skills, they're constricted to tool calls and lifecycle events. Hooks may be used to enforce policy.
 
 **Hook Types:**
 
