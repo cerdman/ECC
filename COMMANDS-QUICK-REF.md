@@ -9,6 +9,7 @@
 | Command | What it does |
 |---------|-------------|
 | `/plan` | Restate requirements, assess risks, write step-by-step implementation plan — **waits for your confirm before touching code** |
+| `/workflow` | AI-augmented feature pipeline: requirements → discovery → PRD → tech plan → design → implement → test → review, with persistent multi-workflow state and per-phase memory under `.claude/workflows/` |
 | `/tdd` | Enforce test-driven development: scaffold interface → write failing test → implement → verify 80%+ coverage |
 | `/code-review` | Full code quality, security, and maintainability review of changed files |
 | `/build-fix` | Detect and fix build errors — delegates to the right build-resolver agent automatically |

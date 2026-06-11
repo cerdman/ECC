@@ -15,6 +15,7 @@ skills:
   - agent-payment-x402
   - agentic-engineering
   - agentic-os
+  - ai-augmented-workflow
   - ai-first-engineering
   - ai-regression-testing
   - android-clean-architecture
@@ -240,6 +241,7 @@ commands:
   - test-coverage
   - update-codemaps
   - update-docs
+  - workflow
 tags:
   - agent-harness
   - developer-tools

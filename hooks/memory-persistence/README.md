@@ -5,6 +5,7 @@ These lifecycle hook definitions document ECC's memory persistence contract for 
 The executable implementations live in `scripts/hooks/`:
 
 - `session-start.js` loads bounded prior context, detects project state, and prepares session metadata.
+- `workflow-context.js` injects active ai-augmented-workflow state (phases, agents, memory) from `.claude/workflows/`.
 - `pre-compact.js` captures state before context compaction.
 - `session-end.js` persists session-end summaries when transcript metadata is available.
 - `observe-runner.js` records tool-use observations for continuous learning.
@@ -17,6 +18,7 @@ The installed hook graph is still `hooks/hooks.json`. This directory is the stab
 | Event | Hook | Purpose | Blocking |
 |---|---|---|---|
 | `SessionStart` | `session:start` | Load bounded prior context and project metadata | no |
+| `SessionStart` | `session:start:workflow-context` | Inject active ai-augmented-workflow state | no |
 | `PreCompact` | `pre:compact` | Save state before compaction | no |
 | `PreToolUse` | `pre:observe:continuous-learning` | Capture tool intent for learning signals | no |
 | `PostToolUse` | `post:observe:continuous-learning` | Capture tool result for learning signals | no |

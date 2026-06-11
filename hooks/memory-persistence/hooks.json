@@ -9,6 +9,13 @@
       "blocking": false
     },
     {
+      "event": "SessionStart",
+      "id": "session:start:workflow-context",
+      "script": "scripts/hooks/workflow-context.js",
+      "purpose": "Inject active ai-augmented-workflow state (phases, agents, memory) into session context.",
+      "blocking": false
+    },
+    {
       "event": "PreCompact",
       "id": "pre:compact",
       "script": "scripts/hooks/pre-compact.js",
