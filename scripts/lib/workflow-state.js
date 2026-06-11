@@ -177,7 +177,8 @@ function createWorkflow(name, options = {}) {
     createdAt: nowIso(),
     updatedAt: nowIso(),
     phases: buildPhases(options),
-    memory: []
+    memory: [],
+    dispatches: []
   };
 
   fs.mkdirSync(path.join(baseDir, id), { recursive: true });
@@ -293,9 +294,40 @@ function updatePhase(id, phaseId, patch = {}, options = {}) {
 }
 
 /**
+ * GateGuard-style gate on gate phases (prd, review): deny the advance,
+ * force concrete evidence, allow the retry. Self-evaluation ("looks good")
+ * is not evidence — the verbatim user approval is.
+ */
+function assertGateApproved(workflow, phase, options) {
+  if (!phase.gate) {
+    return;
+  }
+
+  if (!options.approve) {
+    throw new Error(
+      [
+        `GATE: phase "${phase.id}" requires explicit approval before advancing.`,
+        'Present these facts, then retry with --approve:',
+        `1. The artifact for this phase, recorded via --artifact (currently: ${phase.artifacts.length > 0 ? phase.artifacts.join(', ') : 'none'})`,
+        "2. The user's approval quoted verbatim in --note",
+        `Retry: workflow.js advance ${workflow.id} --approve --note "User approved: '<verbatim quote>'"`
+      ].join('\n')
+    );
+  }
+
+  if (!options.note || !String(options.note).trim()) {
+    throw new Error(
+      `GATE: --approve on phase "${phase.id}" requires --note quoting the user's approval verbatim`
+    );
+  }
+}
+
+/**
  * Complete the current phase and activate the next non-skipped one.
  * Marks the workflow done after the final phase and records a memory
  * entry so the transition survives compaction and session restarts.
+ * Gate phases (prd, review) deny the advance until options.approve and
+ * an evidence note are supplied.
  */
 function advanceWorkflow(id, options = {}) {
   const workflow = requireWorkflow(id, options);
@@ -303,6 +335,8 @@ function advanceWorkflow(id, options = {}) {
   if (!phase) {
     throw new Error(`Workflow ${id} has no remaining phases`);
   }
+
+  assertGateApproved(workflow, phase, options);
 
   phase.status = 'done';
   phase.completedAt = nowIso();

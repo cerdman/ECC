@@ -126,5 +126,5 @@ test('hook runs standalone via stdin and exits 0 (integration)', () => {
   assert.ok(result.stdout.includes(workflow.id));
 });
 
-console.log(`\n${passed} passed, ${failed} failed\n`);
+console.log(`\nPassed: ${passed}\nFailed: ${failed}\n`);
 process.exit(failed > 0 ? 1 : 0);
