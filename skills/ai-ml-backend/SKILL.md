@@ -1,25 +1,28 @@
 ---
 name: ai-ml-backend
-description: Python-first DSPy-centered AI/ML backend conventions for pipeline-first inference systems. Defines retrieval-first architecture, confidence gating, deterministic fallbacks, service topology, evaluation discipline, and links to related ECC backend skills.
+description: Python-first DSPy-centered AI/ML backend conventions for hybrid retrieval systems. Enforces sequential multi-stage pipelines, strict confidence gating, deterministic fallbacks, safe degradation, and telemetry-isolated production operations.
 origin: ECC
-version: 1.1.0
+version: 1.2.0
 ---
 
-# AI/ML Backend
+# ai-ml-backend — Agentic AI/ML Backend Architecture & Conventions
 
-Top-level architectural guidance for Python-first, DSPy-centered AI/ML backend systems.
+You are a **Python-first, DSPy-centered AI/ML backend** operating a **hybrid retrieval + ensemble encoder** architecture.
+Treat the system as a **sequential multi-stage pipeline**:
 
-Use this skill when the backend is a **bounded inference pipeline**, not a generic CRUD service.
-The canonical shape is a **pipeline-first architecture**:
+1. Input processing / entity extraction
+2. Retrieval
+3. Candidate scoring
+4. Selection
+5. Confidence gating
 
-`extract -> retrieve -> score -> select -> gate`
+Never collapse this into a single monolithic model call when the task belongs in the backend pipeline.
 
-The operational stance is **safety by abstention**:
-
+Your primary directive is **operational safety**:
+- prefer safe degradation over brittle behavior
 - prefer explicit abstention over forced guesses
 - prefer deterministic fallbacks over silent failure
-- prefer safe degradation over brittle success
-- prefer authoritative retrieval over parametric memory
+- never hallucinate success when confidence is low
 
 ## When to Activate
 
@@ -30,249 +33,271 @@ The operational stance is **safety by abstention**:
 - Designing confidence gating, abstention contracts, or fallback logic
 - Reviewing evaluation harnesses for retrieval, classification, or agent backends
 
-## Core Identity
+## Core Architecture
 
-Treat the system as a specialized inference service, not a monolithic model wrapper and not a CRUD-first backend.
+### Pipeline Discipline
+Always structure backend reasoning and implementation as staged execution:
+- **Input Processing / NER** -> normalize and extract entities without mutating system state
+- **Retrieval** -> query authoritative knowledge sources using hybrid search
+- **Candidate Scoring** -> score candidates using ensemble methods
+- **Selection** -> rank with deterministic tie-breaking
+- **Confidence Gating** -> return result or abstain explicitly
 
-The default execution path is staged:
+Do not skip confidence gating.
+Do not hide uncertainty.
+Do not use freeform LLM memory as the source of truth for entity resolution.
 
-1. input processing / extraction
-2. retrieval
-3. candidate scoring
-4. deterministic selection
-5. confidence gating
+### Specialized Inference Service Identity
+The backend is a specialized FastAPI inference service, not a CRUD-first application.
+It blends deterministic retrieval (vector + lexical) with LLM-based adjudication.
+System design should prioritize auditable execution traces, pipeline metadata, and manual-review safety over opaque final answers.
 
-Do not collapse backend pipeline work into one opaque LLM call when the task belongs in a structured inference pipeline.
+Human-in-the-loop workflows such as feedback intake and manual review queues are first-class API boundaries.
+The frontend should remain a thin client against a rigid, typed backend contract.
+Authentication and authorization logic may exist in the broader system, but should remain cleanly separated from the inference routing contract.
 
-## Canonical Stack
+### Canonical Stack
+- **API layer:** FastAPI with strict Pydantic validation
+- **Orchestration:** DSPy declarative pipelines
+- **Retrieval:** hybrid dense + sparse search with GPU acceleration and CPU fallback
+- **Input processing:** stateless parsing and hierarchical string decomposition
+- **Observability:** OTLP-based telemetry, isolated from inference-critical logic
+- **Infrastructure:** containerized services with separate API and worker roles
+- **Logging:** structured machine-readable logs
+- **Tooling:** pytest, mypy, ruff
 
-| Domain | Standard |
-|---|---|
-| Runtime | Python 3.10+ |
-| Service Layer | FastAPI + Pydantic v2 |
-| Orchestration | DSPy or equivalent declarative LM pipeline |
-| Dense Retrieval | Sentence transformers + FAISS or equivalent |
-| Sparse Retrieval | BM25 or equivalent lexical search |
-| Input Processing | Stateless parsing and bounded extraction |
-| Tracing | OpenTelemetry / OTLP |
-| Logging | Structured JSON logs |
-| Tooling | pytest, mypy, ruff |
-| Deployment | Docker, GPU-aware runtime, isolated api/worker services |
+## Runtime & Service Topology
 
-## Runtime and Service Topology
+### Service Separation
+Keep the low-latency `api` inference path isolated from the `worker` cache warmup / indexing / initialization path.
+Do not couple core ML inference behavior to frontend build or UI concerns.
 
-### Deployment Isolation
+### Configuration
+Treat environment variables as the only source of runtime configuration for:
+- model selection
+- provider settings
+- retrieval/index settings
+- observability endpoints
+- feature flags
 
-Separate the low-latency `api` inference path from background `worker` responsibilities such as:
-
-- cache warmup
-- indexing
-- background materialization
-- deferred exports
-- heavy initialization tasks
-
-Do not let frontend build concerns or worker warmup logic shape the primary inference latency path.
-
-### Configuration Discipline
-
-Drive model, provider, retrieval, and observability configuration through environment variables.
-Do not mutate effective configuration at runtime.
-Require restart or redeploy for environment changes.
+Do not mutate config at runtime.
+Require process or container restart for environment changes.
 
 ### Initialization Order
+Initialize telemetry and tracing **before** allocating language model clients or retrieval resources.
+Instrumentation must span the entire boot sequence.
 
-Initialize telemetry and tracing before allocating model clients or retrieval resources so boot-time instrumentation is complete.
+### Local Iteration
+Prefer live source and data mounts during local development so engineers can iterate without rebuilding containers for every code or dataset change.
 
-### Local Development
+### Deployment & Lifecycle
+Service topology may separate `api`, background `worker` processes, and client proxying.
+Prefer deterministic application boot through a factory pattern such as `uvicorn path:create_app --factory`.
+Heavy ML dependencies should initialize inside protected, module-scoped singletons or equivalent lifecycle-managed containers.
 
-Prefer live source/data mounts for rapid iteration instead of forcing image rebuilds for every code or dataset change.
+If the system exposes streaming routes such as SSE, isolate blocking encode/search work into thread-pool or worker execution so the async event loop stays responsive.
+Where required by infrastructure, set anti-buffering headers such as `X-Accel-Buffering: no` so streaming responses flush immediately.
 
-## Pipeline Architecture
+## Input Processing & Parsing
 
-### 1. Input Processing
+### Stateless Parsers
+Input processors must be pure and stateless.
+Never mutate model state, caches, or KB state during parsing.
 
-Input processing must remain stateless and deterministic.
+### Deterministic Fallback Chain
+When extraction is uncertain, use an explicit fallback sequence:
+1. standard structured extraction
+2. delimited chunking / hierarchical splitting
+3. single-term pass-through
 
-Rules:
+Fallback behavior must be deterministic and testable.
 
-- do not mutate model or KB state during parsing
-- preserve meaningful prefixes, separators, and namespace context
-- enforce bounded token/character windows
-- define fallback order explicitly
+### Conservative Decomposition
+Preserve meaningful prefixes, namespace context, and metadata when splitting compound user inputs.
+Do not over-normalize away information that may affect retrieval quality.
 
-Typical fallback chain:
+Delimiters and extraction logic should be bounded by token or character limits to avoid resource exhaustion.
 
-1. structured extraction / NER
-2. delimiter-aware chunking
-3. single-item pass-through
+## Knowledge Base & Retrieval
 
-### 2. Retrieval
+### Source of Truth
+All entity resolution must ground against a database-backed or strictly versioned knowledge base.
+Do not rely on parametric model memory for canonical IDs, aliases, or production entity lookup.
 
-Retrieval must ground against an authoritative knowledge source:
+### Corpus Representation
+Index canonical terms as primary retrieval units.
+Store synonyms and aliases as metadata to improve contextual scoring, but do not let alias expansion dilute canonical embeddings.
 
-- versioned KB
-- database-backed KB
-- reproducible indexed corpus
+### Hybrid Search
+Use hybrid retrieval by default:
+- dense / semantic retrieval for conceptual relevance
+- sparse / lexical retrieval for exactness and rare identifiers
 
-Do not rely on LLM parameter memory for canonical IDs, entity existence, or production mapping.
+Start with embedding-heavy fusion such as:
+- **0.6 dense / 0.4 sparse**
 
-#### Corpus Representation
+Then adapt weights based on query shape:
+- favor sparse more for short or exact-entity queries
+- favor dense more for longer semantic queries
 
-Embed canonical terms as the dense retrieval substrate.
-Keep synonyms, aliases, and variants as metadata sidecars for reranking and lexical scoring.
-Do not dilute dense vectors by embedding synonym soup as the primary string.
+### Retrieval Constraints
+Knowledge Base entity targets should be embedded cleanly to prevent synonym dilution in dense vector space.
+Lexical variations and aliases belong in metadata sidecars for reranking, not in the primary embedding target string.
 
-#### Hybrid Retrieval
+Embedding caches must map against a composite hash of model version, KB version, and relevant runtime parameters.
+Any mismatch must force rebuild rather than silent reuse.
 
-Use dense + sparse retrieval together by default.
+### Hardware Safety
+GPU acceleration is an optimization, not a requirement.
+If GPU initialization or search fails, fall back cleanly to CPU retrieval.
+Do not fail the request solely because the accelerator path is unavailable.
 
-Suggested baseline:
+## Scoring, Selection & Confidence Gating
 
-- 0.6 dense
-- 0.4 sparse
+### Ensemble Execution
+Run multiple scoring heads concurrently only within explicit concurrency limits.
+Protect shared retrieval/index resources from unbounded parallel access.
 
-Tune toward sparse for:
-
-- short queries
-- exact identifiers
-- entity codes
-
-Tune toward dense for:
-
-- longer semantic descriptions
-- paraphrased user intent
-
-### 3. Scoring and Selection
-
-Candidate scoring should operate over a bounded top-k set, not the full corpus.
-
-Use ensemble or multi-head scoring when needed, but keep concurrency bounded.
-
-Ranking hierarchy:
-
-1. ensemble votes
-2. LLM reasoning score
-3. retrieval score
+### Deterministic Ranking
+Apply this ranking hierarchy strictly:
+1. **Ensemble votes**
+2. **LLM reasoning score**
+3. **Retrieval score**
 
 Tie-breaking must be deterministic.
-Selection rationale must reference retrieval evidence, metadata, and agreement signals rather than freeform unsupported prose.
+Repeated identical requests should produce identical ordering when inputs and indexes are unchanged.
 
-### 4. Confidence Gating
+### Traceable Rationale
+Selection justifications must reference:
+- ensemble agreement
+- retrieved evidence
+- candidate metadata
+- confidence thresholds
 
-Confidence gating is mandatory.
+Do not invent freeform rationales that are unsupported by retrieval or scoring artifacts.
 
-If the system cannot support a confident result, return an explicit abstention payload.
-Do not emit silent nulls.
-Do not force guesses.
+### Canonical Cross-Validation
+Extracted string entities must be cross-validated against the canonical KB.
+The agent must never synthesize valid-looking but non-existent target identifiers or codes.
+
+Where deterministic retrieval metrics exceed high-confidence thresholds, it is acceptable to bypass unnecessary LLM adjudication entirely.
+
+### Low-Confidence Contract
+If confidence is below threshold, return an explicit abstention payload such as:
 
 ```json
 {
   "status": "LOW_CONFIDENCE",
   "result": null,
-  "rationale": "Weak retrieval evidence and insufficient ensemble agreement"
+  "rationale": "Insufficient ensemble agreement and weak retrieval evidence"
 }
 ```
 
-## API Contract Rules
+Never return silent nulls.
+Never force a best guess when the system should abstain.
 
-- reject invalid input at the Pydantic boundary
-- keep JSON payloads explicitly typed
-- standardize casing deliberately, usually `snake_case` for Python APIs
-- return arrays of typed prediction objects when one request expands into multiple items
-- hard-bound string lengths, array sizes, and pagination windows
+## API Contract Boundaries
 
-The frontend should remain a thin client against a rigid backend contract.
+- **Validation Dominance:** Reject empty, blank, malformed, or structurally invalid requests at the Pydantic boundary to avoid wasting GPU/LLM cycles.
+- **Casing Serialization:** Standardize API payloads on `snake_case` unless a stronger local contract already exists.
+- **Discrete Targeting:** If one request expands into multiple extracted items, return discrete typed prediction objects for each item.
+- **Limits:** Bind maximum array sizes, text lengths, and pagination windows in schema definitions.
 
-## Caching and Lifecycle Rules
+## Observability & Persistence
 
-Heavy resources may be cached in-process, but cache validity must be strict.
-
-Invalidate embedding or retrieval caches on any mismatch in:
-
-- model hash
-- KB version
-- canonical ordering
-- runtime parameters that affect vector interpretation
-
-Partial cache matches are correctness bugs.
-
-## Observability and Persistence
-
+### Telemetry Requirements
 Telemetry must be useful but non-critical.
+Capture ranking order, similarity scores, metadata context, prompt traces where appropriate, and execution evidence for each prediction.
 
-Rules:
+### Observability Isolation
+Telemetry or MLOps SDKs must not be allowed to destabilize inference dependencies.
+Prefer OTLP-over-HTTP or similarly decoupled exporters so observability dependency trees stay isolated from the main serving path.
 
-- emit structured traces and ranking metadata per prediction
-- isolate observability dependency trees from serving-critical dependencies
-- swallow exporter/connectivity failures
-- never let telemetry outages degrade inference availability
+### Telemetry Fault Tolerance
+Telemetry wrappers, decorators, and exporters must swallow export/connectivity failures.
+Observability outages must never degrade core inference availability.
 
-For auditability, append-only file artifacts are acceptable for:
+### Artifact Storage
+Operational artifacts such as review queues, feedback logs, and trace streams may be stored in append-only filesystem formats such as CSV or JSONL when that improves forensic auditability.
 
-- review queues
-- feedback streams
-- trace snapshots
-- JSONL/CSV evidence logs
+Operational convention: **containers for serving, files for evidence**.
 
-Operational convention: containers serve; files preserve evidence.
+### Hardware Health
+Startup logic should validate expected hardware availability and configured accelerator limits before advertising ready status to load balancers or orchestrators.
 
 ## Hard-Fought Failure Modes
 
 ### GPU Concurrency Hazards
+Unbounded concurrent retrieval against GPU-backed indexes can crash the process.
+Serialize critical FAISS or GPU index search sections with async locks or thread locks where needed.
 
-Unbounded concurrent FAISS or GPU-backed retrieval can crash the process.
-Protect critical search sections with explicit locks and concurrency caps.
+### CUDA Device Drift
+Do not assume stable CUDA-visible device numbering.
+Implement explicit device mapping and automatic CPU fallback if the configured GPU is unavailable.
 
-### Hardware Renumbering
+### Cache Invalidation
+Invalidate dense vector caches immediately when any of these change:
+- KB version
+- embedding model hash
+- canonical ID ordering
+- runtime retrieval parameters that affect vector semantics
 
-CUDA device numbering drifts.
-Map devices explicitly and fail over to CPU when GPU initialization fails.
+Cache reuse across mismatched versions is a correctness bug.
 
-### Lexical/Semantic Contamination
+### Lexical and Semantic Segregation
+Do not pollute dense embedding vectors by injecting domain synonyms directly into the target string.
+Embed primary targets purely for spatial semantics, and retain synonyms strictly for parallel lexical scoring operations.
 
-Do not inject domain synonym bags into canonical embedding targets.
-Keep dense semantics and lexical alias scoring separate.
+### File-System Auditability
+Append-only plain-text or structured artifact storage is often preferable to premature database complexity when preserving adjudication evidence and manual-review traces.
 
-### Prompt Contamination Across Ensembles
+### Opaque Prompt Isolation
+Multi-vote LLM ensembles inherently leak contextual contamination if reasoning states are shared or aggressively cached.
+Isolate and uniquely track every independent prompt rollout execution.
 
-Independent ensemble heads must be independently tracked.
-Do not reuse contaminated reasoning state across prompt rollouts.
-Assign unique execution IDs per head or vote stream.
+### Hierarchy Dominates Guesswork
+Inject domain ontology or category hierarchy constraints directly into retrieval/scoring context so the system does not make illogical cross-category jumps.
 
-### Hierarchy Before Guesswork
-
-Inject domain constraints and ontology boundaries directly into selection context so the model cannot jump across impossible categories.
-
-### Per-Item Trace IDs
-
-When one request expands into many prediction items, generate correlation IDs per item, not just per request.
+### UUID Correlation Tracing
+Spawn distinct correlation IDs for each prediction item, not only per request, so array-expanded outputs remain traceable across asynchronous flows.
 
 ## Evaluation Discipline
 
-Use a layered evaluation model:
+### L1–L4 Altitude Model
+Stratify evaluation across four levels:
+- **L1:** schema and contract correctness
+- **L2:** retrieval and classification precision
+- **L3:** trajectory / reasoning integrity
+- **L4:** end-to-end exact match with stratified confidence analysis
 
-- **L1** schema / contract correctness
-- **L2** retrieval and classification precision
-- **L3** trajectory / reasoning integrity
-- **L4** end-to-end exact match and confidence behavior
+### Data Leakage Prevention
+Use immutable, deterministic train/test splits.
+Holdout datasets must remain protected by CI and never be mutated casually.
 
-Rules:
+### Honest Missingness
+If an evaluator lacks data or capability, emit:
+- `skipped`, or
+- `insufficient_data`
 
-- train/test splits are immutable and deterministic
-- holdouts remain protected in CI
-- missing evaluator capability must emit `skipped` or `insufficient_data`
-- never fabricate zeros to satisfy dashboards
-- human review remains the final authority for gold labels
-- new rerankers, prompt strategies, and fast paths stay off by default until controlled evaluation proves value
+Do not fabricate zeros.
+Do not silently omit missing metrics.
+
+### Human-in-the-Loop Priority
+Human review is the final authority for gold labels and production evaluation decisions.
+Model-generated evaluations may assist, but must not automatically rewrite canonical gold datasets.
+
+### Experimental Containment
+New rerankers, prompt strategies, reasoning loops, and fast paths must be off by default.
+Promote only after controlled evaluation or A/B testing against canonical baselines.
 
 ## Implementation Rules
 
-- prefer small explicit pipeline stages over large mixed-responsibility functions
-- keep retrieval, scoring, gating, and telemetry decoupled
-- validate request and response contracts strictly
-- make fallback paths deterministic and testable
-- preserve enough metadata to explain every result or abstention
-- fail fast at boundaries and degrade safely inside the pipeline
+- Prefer small, testable pipeline stages over large mixed-responsibility functions.
+- Validate every request and response schema explicitly.
+- Keep retrieval, scoring, gating, and telemetry concerns separated.
+- Make fallback paths observable and deterministic.
+- Fail fast at system boundaries, but degrade safely inside the pipeline.
+- Record enough metadata to explain why a result was selected or abstained.
 
 ## How This Skill Relates to Other ECC Skills
 
