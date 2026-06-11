@@ -21,8 +21,21 @@ const {
   addMemory,
   summarizeWorkflows
 } = require('./lib/workflow-state');
+const { HARNESS_LAUNCHERS, dispatchPhase, ingestDispatch } = require('./lib/workflow-dispatch');
 
-const VALUE_FLAGS = new Set(['--description', '--status', '--agent', '--artifact', '--note', '--phase', '--dir', '--max-chars']);
+const VALUE_FLAGS = new Set([
+  '--description',
+  '--status',
+  '--agent',
+  '--artifact',
+  '--note',
+  '--phase',
+  '--dir',
+  '--max-chars',
+  '--harness',
+  '--launcher',
+  '--session'
+]);
 
 function showHelp(exitCode = 0) {
   console.log(`
@@ -30,14 +43,17 @@ Usage:
   node scripts/workflow.js start <name> [--description <text>] [--no-design] [--json]
   node scripts/workflow.js list [--all] [--json]
   node scripts/workflow.js show <id> [--json]
-  node scripts/workflow.js advance <id> [--artifact <path>] [--note <text>] [--json]
+  node scripts/workflow.js advance <id> [--approve] [--artifact <path>] [--note <text>] [--json]
   node scripts/workflow.js set-phase <id> <phase> [--status <s>] [--agent <name>] [--artifact <path>] [--note <text>] [--json]
   node scripts/workflow.js memory <id> --note <text> [--phase <phase>] [--json]
+  node scripts/workflow.js dispatch <id> [--phase <phase>] [--harness <h>]... [--launcher <template>] [--execute] [--replace] [--json]
+  node scripts/workflow.js ingest <id> [--session <name>] [--json]
   node scripts/workflow.js summary [--all] [--max-chars <n>]
 
 Track the AI-augmented engineering workflow (requirements, discovery, PRD,
 tech plan, design, implement, test, review) across multiple concurrent
-features with per-phase agent assignments and a memory log.
+features with per-phase agent assignments and a memory log. Dispatch phases
+to external harness workers (tmux + git worktrees) and ingest their handoffs.
 
 Options:
   --description <text>  Workflow description for start
@@ -46,7 +62,15 @@ Options:
   --agent <name>        Record an agent assignment on a phase (repeatable)
   --artifact <path>     Record an artifact (PRD, plan, mockup, PR, ...)
   --note <text>         Free-text note / memory entry
-  --phase <phase>       Phase id to attach a memory note to
+  --phase <phase>       Phase id (memory note target or dispatch target)
+  --approve             Pass a gate phase (prd, review); requires --note with
+                        the user's approval quoted verbatim
+  --harness <h>         Worker harness: ${Object.keys(HARNESS_LAUNCHERS).join(' | ')} (repeatable)
+  --launcher <template> Explicit launcher template (overrides --harness default)
+  --execute             Actually create worktrees and launch the tmux session
+                        (dispatch is a dry-run plan without it)
+  --replace             Replace an existing dispatch session of the same name
+  --session <name>      Ingest only this dispatch session
   --dir <path>          Override the workflows directory
   --all                 Include finished workflows
   --json                Emit JSON
@@ -55,7 +79,7 @@ Options:
 }
 
 function parseArgs(argv) {
-  const parsed = { positional: [], flags: {}, agents: [] };
+  const parsed = { positional: [], flags: {}, agents: [], harnesses: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (VALUE_FLAGS.has(arg)) {
@@ -66,6 +90,8 @@ function parseArgs(argv) {
       }
       if (arg === '--agent') {
         parsed.agents.push(value);
+      } else if (arg === '--harness') {
+        parsed.harnesses.push(value);
       } else {
         parsed.flags[arg.slice(2)] = value;
       }
@@ -164,6 +190,7 @@ function main() {
       case 'advance': {
         const workflow = advanceWorkflow(parsed.positional[0] || '', {
           ...options,
+          approve: Boolean(parsed.flags.approve),
           artifact: parsed.flags.artifact,
           note: parsed.flags.note
         });
@@ -188,6 +215,59 @@ function main() {
         const note = parsed.flags.note || parsed.positional.slice(1).join(' ');
         const entry = addMemory(parsed.positional[0] || '', note, { ...options, phase: parsed.flags.phase });
         emit(parsed, entry, value => console.log(`Recorded memory on ${parsed.positional[0]}: ${value.note}`));
+        break;
+      }
+      case 'dispatch': {
+        const { plan, executed } = dispatchPhase(parsed.positional[0] || '', {
+          ...options,
+          phase: parsed.flags.phase,
+          harnesses: parsed.harnesses,
+          launcher: parsed.flags.launcher,
+          execute: Boolean(parsed.flags.execute),
+          replace: Boolean(parsed.flags.replace)
+        });
+        const preview = {
+          executed,
+          sessionName: plan.sessionName,
+          coordinationDir: plan.coordinationDir,
+          workers: plan.workerPlans.map(worker => ({
+            workerName: worker.workerName,
+            branchName: worker.branchName,
+            worktreePath: worker.worktreePath,
+            taskFilePath: worker.taskFilePath,
+            handoffFilePath: worker.handoffFilePath,
+            launchCommand: worker.launchCommand
+          }))
+        };
+        emit(parsed, preview, value => {
+          console.log(
+            value.executed
+              ? `Launched tmux session '${value.sessionName}' with ${value.workers.length} worker(s). Attach with: tmux attach -t ${value.sessionName}`
+              : `Dry-run dispatch plan for '${value.sessionName}' (${value.workers.length} worker(s)). Re-run with --execute to launch.`
+          );
+          for (const worker of value.workers) {
+            console.log(`  ${worker.workerName}: ${worker.launchCommand}`);
+            console.log(`    worktree: ${worker.worktreePath} (branch ${worker.branchName})`);
+          }
+          console.log(`  coordination: ${value.coordinationDir}`);
+        });
+        break;
+      }
+      case 'ingest': {
+        const ingested = ingestDispatch(parsed.positional[0] || '', {
+          ...options,
+          session: parsed.flags.session
+        });
+        emit(parsed, ingested, list => {
+          for (const entry of list) {
+            console.log(`${entry.workerSlug} [${entry.sessionName}] state: ${entry.state}`);
+            for (const line of entry.summary) {
+              console.log(`  - ${line}`);
+            }
+            console.log(`  handoff: ${entry.handoffFile}`);
+          }
+          console.log(`Ingested ${list.length} worker handoff(s) into workflow memory.`);
+        });
         break;
       }
       case 'summary': {

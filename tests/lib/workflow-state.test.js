@@ -132,7 +132,11 @@ test('advanceWorkflow skips skipped phases and finishes the workflow at the end'
 
   let workflow = created;
   for (let step = 0; step < workflowState.PHASES.length - 1; step += 1) {
-    workflow = workflowState.advanceWorkflow(created.id, { dir });
+    workflow = workflowState.advanceWorkflow(created.id, {
+      dir,
+      approve: true,
+      note: "User approved: 'ship it'"
+    });
   }
 
   assert.strictEqual(workflow.status, 'done');
@@ -141,6 +145,39 @@ test('advanceWorkflow skips skipped phases and finishes the workflow at the end'
   const others = workflow.phases.filter(phase => phase.id !== 'design');
   assert.ok(others.every(phase => phase.status === 'done'));
   assert.throws(() => workflowState.advanceWorkflow(created.id, { dir }), /no remaining phases/);
+});
+
+test('gate phases deny advance without --approve, then allow with approval evidence', () => {
+  const dir = makeTempDir();
+  const created = workflowState.createWorkflow('gated feature', { dir });
+
+  // Walk to the prd gate phase (requirements -> discovery -> prd)
+  workflowState.advanceWorkflow(created.id, { dir });
+  workflowState.advanceWorkflow(created.id, { dir });
+  assert.strictEqual(workflowState.currentPhase(workflowState.getWorkflow(created.id, { dir })).id, 'prd');
+
+  // DENY: no approval
+  assert.throws(
+    () => workflowState.advanceWorkflow(created.id, { dir }),
+    /GATE: phase "prd" requires explicit approval/
+  );
+  // FORCE: approval without evidence note is still denied
+  assert.throws(
+    () => workflowState.advanceWorkflow(created.id, { dir, approve: true }),
+    /requires --note quoting the user's approval verbatim/
+  );
+  // ALLOW: approval with verbatim evidence passes
+  const advanced = workflowState.advanceWorkflow(created.id, {
+    dir,
+    approve: true,
+    note: "User approved: 'PRD looks good, proceed'"
+  });
+  assert.strictEqual(advanced.phases.find(phase => phase.id === 'prd').status, 'done');
+  assert.ok(advanced.memory.some(entry => entry.note.includes('PRD looks good')));
+
+  // Non-gate phases still advance without approval
+  const next = workflowState.advanceWorkflow(created.id, { dir });
+  assert.strictEqual(next.phases.find(phase => phase.id === 'tech-plan').status, 'done');
 });
 
 test('addMemory appends to state and memory.md with optional phase tag', () => {
@@ -180,5 +217,5 @@ test('getWorkflow returns null for missing workflows', () => {
   assert.strictEqual(workflowState.getWorkflow('wf-00000000-missing', { dir }), null);
 });
 
-console.log(`\n${passed} passed, ${failed} failed\n`);
+console.log(`\nPassed: ${passed}\nFailed: ${failed}\n`);
 process.exit(failed > 0 ? 1 : 0);

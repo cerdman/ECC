@@ -48,6 +48,8 @@ node "$ECC_ROOT/scripts/workflow.js" show <id>
 node "$ECC_ROOT/scripts/workflow.js" advance <id> --artifact .claude/prds/dark-mode.prd.md --note "PRD approved"
 node "$ECC_ROOT/scripts/workflow.js" set-phase <id> implement --agent tdd-guide --status active
 node "$ECC_ROOT/scripts/workflow.js" memory <id> --phase requirements --note "Budget caps 3rd-party providers"
+node "$ECC_ROOT/scripts/workflow.js" dispatch <id> --phase implement --harness codex --execute
+node "$ECC_ROOT/scripts/workflow.js" ingest <id>
 ```
 
 The `session:start:workflow-context` hook injects a bounded summary of active
@@ -69,7 +71,9 @@ Each phase delegates — it does not do the work inline.
 3. **prd — Create a plan (PRD)** (engineer). Delegate to `planner` (or
    `/plan-prd`) to produce `.claude/prds/<name>.prd.md`, digestible for both
    technical and non-technical readers. → **GATE: user approves the PRD
-   before any technical planning or code.**
+   before any technical planning or code.** The CLI enforces this: `advance`
+   on a gate phase is denied until you pass
+   `--approve --note "User approved: '<verbatim quote>'"`.
 4. **tech-plan — Create technical implementation plan** (engineer). Delegate
    to `architect` / `code-architect`: architecture, edge cases, risks.
    Artifact: `.claude/plans/<name>.plan.md`. Intentional learning, mentorship,
@@ -120,6 +124,45 @@ Run one workflow per feature. `workflow.js list` shows all active pipelines,
 `summary` emits the bounded digest the SessionStart hook injects. Parallel
 agents working different features stay isolated because each workflow has its
 own state directory and memory log.
+
+### GateGuard (deny → present facts → retry)
+
+The workflow honors GateGuard at two levels — never disable either
+(`ECC_GATEGUARD=off` is for setup/repair sessions only, with user consent):
+
+- **Tool level** — the `gateguard-fact-force` hook denies the first
+  Edit/Write per file and destructive Bash. Respond by presenting the facts
+  it demands (importers via Grep, affected public API, data schemas with
+  redacted values, the user's instruction verbatim), then retry the action.
+  Do not pre-answer the gate or self-evaluate around it.
+- **Workflow level** — `advance` on a gate phase (prd, review) is denied
+  until you present the same kind of evidence: the phase artifact recorded
+  via `--artifact`, plus `--approve --note "User approved: '<verbatim
+  quote>'"`. Approval without the quoted evidence is rejected.
+
+### Dispatching external harness workers (swarm mode)
+
+Any phase can be fanned out to external CLI agents running in isolated git
+worktrees inside a tmux session, reusing ECC's tmux-worktree orchestrator:
+
+```bash
+# Dry-run first: shows worktrees, branches, and launcher commands
+node "$ECC_ROOT/scripts/workflow.js" dispatch <id> --phase implement --harness codex
+# Launch for real (requires tmux + the harness CLI on PATH)
+node "$ECC_ROOT/scripts/workflow.js" dispatch <id> --phase implement --harness codex --harness gemini --execute
+# Pull worker handoffs back into workflow memory + phase artifacts
+node "$ECC_ROOT/scripts/workflow.js" ingest <id>
+```
+
+Built-in launchers: `claude`, `codex` (via `orchestrate-codex-worker.sh`),
+`cursor` (`cursor-agent`), `gemini`, `opencode`. Other CLIs (e.g. Antigravity)
+work via `--launcher "<template>"` with `{task_file_sh}` / `{handoff_file_sh}`
+/ `{status_file_sh}` placeholders. Each worker's generated `task.md` carries
+the phase objective, the workflow memory tail, the GateGuard protocol, and
+the report-back command — so external workers inherit both the business
+context and the fact-forcing discipline. After ingesting, review handoffs
+yourself before advancing: dispatch parallelizes work, it does not bypass
+gates.
 
 ## Examples
 
