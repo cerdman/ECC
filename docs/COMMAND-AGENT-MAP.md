@@ -5,6 +5,7 @@ This document lists each slash command and the primary agent(s) or skills it inv
 | Command | Primary agent(s) | Notes |
 |---------|------------------|--------|
 | `/plan` | planner | Implementation planning before code |
+| `/workflow` | planner, code-explorer, architect, tdd-guide, e2e-runner, code-reviewer | AI-augmented workflow with persistent multi-workflow state (`ai-augmented-workflow` skill) |
 | `/tdd` | tdd-guide | Test-driven development |
 | `/code-review` | code-reviewer | Quality and security review |
 | `/build-fix` | build-error-resolver | Fix build/type errors |
