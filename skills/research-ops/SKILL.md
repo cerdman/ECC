@@ -1,112 +1,118 @@
 ---
 name: research-ops
-description: Evidence-first current-state research workflow for ECC. Use when the user wants fresh facts, comparisons, enrichment, or a recommendation built from current public evidence and any supplied local context.
+description: Evidence-first current-state research workflow for ECC. Use when the user wants fresh facts, comparisons, enrichment, or a recommendation built from current public evidence and any supplied local context. Trigger proactively whenever the user says "research", "look up", "compare", "what's the latest", "find out", "who should I talk to", or asks any question whose answer depends on current public data rather than the codebase.
 origin: ECC
 ---
 
 # Research Ops
 
-Use this when the user asks to research something current, compare options, enrich people or companies, or turn repeated lookups into a monitored workflow.
-
-This is the operator wrapper around the repo's research stack. It is not a replacement for `deep-research`, `exa-search`, or `market-research`; it tells you when and how to use them together.
+Operator layer over the repo's research stack. Tells you when and how to use `exa-search`, `deep-research`, `market-research`, `lead-intelligence`, and `knowledge-ops` together.
 
 ## Skill Stack
 
-Pull these ECC-native skills into the workflow when relevant:
+| Skill | When to reach for it |
+|-------|---------------------|
+| `exa-search` | Fast current-web discovery — start here |
+| `deep-research` | Multi-source synthesis, citations, competing claims |
+| `market-research` | Ranked recommendation or decision memo as the end product |
+| `lead-intelligence` | People/company targeting instead of generic research |
+| `knowledge-ops` | Store durable research results for future sessions |
 
-- `exa-search` for fast current-web discovery
-- `deep-research` for multi-source synthesis with citations
-- `market-research` when the end result should be a recommendation or ranked decision
-- `lead-intelligence` when the task is people/company targeting instead of generic research
-- `knowledge-ops` when the result should be stored in durable context afterward
+## Lane Selection
 
-## When to Use
+Pick the lightest lane that can answer the question:
 
-- user says "research", "look up", "compare", "who should I talk to", or "what's the latest"
-- the answer depends on current public information
-- the user already supplied evidence and wants it factored into a fresh recommendation
-- the task may be recurring enough that it should become a monitor instead of a one-off lookup
+| Question shape | Lane | Skills |
+|---------------|------|--------|
+| Single fact with a date | quick-factual | `exa-search` |
+| "Which is better / which should I choose" | comparison | `exa-search` → `market-research` |
+| "Tell me about person X / company Y" | enrichment | `lead-intelligence` |
+| Synthesizing multiple competing sources | synthesis | `deep-research` |
+| Same question will recur next week | monitoring | answer + set up recurring workflow |
 
-## Guardrails
-
-- do not answer current questions from stale memory when fresh search is cheap
-- separate:
-  - sourced fact
-  - user-provided evidence
-  - inference
-  - recommendation
-- do not spin up a heavyweight research pass if the answer is already in local code or docs
+If local docs or code already answer the question, do not spin up a web research pass.
 
 ## Workflow
 
-### 1. Start from what the user already gave you
+**→ For query construction, confidence calibration, conflicting-source handling, and recurrence assessment, read `references/evidence-guide.md`.**
 
-Normalize any supplied material into:
+### 1. Normalize what the user already gave you
 
-- already-evidenced facts
-- needs verification
-- open questions
+Categorize supplied material before searching:
+- **Established** — stated confidently; accept without re-searching
+- **Needs verification** — requires a source check
+- **Open questions** — gaps the research pass must fill
 
-Do not restart the analysis from zero if the user already built part of the model.
+Don't restart from zero. Treat user-supplied context as the cheapest source of evidence.
 
-### 2. Classify the ask
+### 2. Pick a lane
 
-Choose the right lane before searching:
+Use the table above. When in doubt, start with `exa-search` and escalate.
 
-- quick factual answer
-- comparison or decision memo
-- lead/enrichment pass
-- recurring monitoring candidate
+### 3. Execute the lightest useful pass first
 
-### 3. Take the lightest useful evidence path first
+Start with `exa-search`. Escalate to `deep-research` when results conflict or 4+ sources are needed. Use `market-research` only when the deliverable is a ranked recommendation.
+→ See `references/evidence-guide.md` for query construction tips.
 
-- use `exa-search` for fast discovery
-- escalate to `deep-research` when synthesis or multiple sources matter
-- use `market-research` when the outcome should end in a recommendation
-- hand off to `lead-intelligence` when the real ask is target ranking or warm-path discovery
+### 4. Calibrate evidence sufficiency
 
-### 4. Report with explicit evidence boundaries
+Label every claim (High / Medium / Low / Insufficient) before writing.
+→ See `references/evidence-guide.md` for the calibration table.
 
-For important claims, say whether they are:
+### 5. Handle conflicting sources
 
-- sourced facts
-- user-supplied context
-- inference
-- recommendation
+Name both positions, note which is more recent, label your synthesis as inference.
+→ See `references/evidence-guide.md` for the full protocol.
 
-Freshness-sensitive answers should include concrete dates.
+### 6. Report with explicit evidence boundaries
 
-### 5. Decide whether the task should stay manual
+Every claim must be traceable: sourced fact, user-provided context, inference, or recommendation.
 
-If the user is likely to ask the same research question repeatedly, say so explicitly and recommend a monitoring or workflow layer instead of repeating the same manual search forever.
+### 7. Assess recurrence
+
+If the user will ask this again in 2–4 weeks, say so and recommend a monitoring path.
+→ See `references/evidence-guide.md` for recurrence signals and setup options.
 
 ## Output Format
 
 ```text
-QUESTION TYPE
-- factual / comparison / enrichment / monitoring
+## [Topic] — Research Summary
 
-EVIDENCE
-- sourced facts
-- user-provided context
+**Question type:** factual | comparison | enrichment | synthesis
 
-INFERENCE
-- what follows from the evidence
+**Evidence**
+- [Source: <name/URL>, <date>] Fact stated here
+- [User-provided] Context the user supplied
 
-RECOMMENDATION
-- answer or next move
-- whether this should become a monitor
+**Conflicting signals** (if any)
+- [Source A] says X; [Source B] says Y. Source B is more recent (YYYY-MM).
+
+**Inference**
+- What follows from the evidence (labeled as inference)
+
+**Recommendation**
+- Answer or recommended next move
+- Confidence: high / medium / low
+
+**Freshness note**
+- Data sourced from <date>. Recheck if more than [N weeks] old matters.
+
+**Recurring?**
+- Yes / No. If yes: suggest monitoring setup.
 ```
 
-## Pitfalls
+## Guardrails
 
-- do not mix inference into sourced facts without labeling it
-- do not ignore user-provided evidence
-- do not use a heavy research lane for a question local repo context can answer
-- do not give freshness-sensitive answers without dates
+- Never mix inference into sourced facts without labeling it
+- Never give freshness-sensitive answers without dates
+- Do not spin up `deep-research` for a question local docs can answer
+- Do not ignore user-supplied evidence — it is the cheapest source
+- Say "insufficient evidence" when that is the truth
 
-## Verification
+## Verification Checklist
 
-- important claims are labeled by evidence type
-- freshness-sensitive outputs include dates
-- the final recommendation matches the actual research mode used
+- [ ] Every claim has an evidence type label
+- [ ] Freshness-sensitive claims include dates
+- [ ] Conflicting sources are named, not averaged
+- [ ] Confidence level matches the evidence actually gathered
+- [ ] Recommendation derives from the evidence, not prior assumptions
