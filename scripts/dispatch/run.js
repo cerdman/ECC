@@ -31,6 +31,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const sessionRegistry = require('./session-registry');
 
 const SESSIONS_DIR = path.join(os.homedir(), '.claude', 'spec-kit', 'sessions');
 
@@ -174,6 +175,16 @@ function runAdvisorMode(argv) {
     output: result.output
   });
 
+  sessionRegistry.register({
+    harness: process.env.ECC_HARNESS || sessionRegistry.detectHarness(),
+    backend: args.backend,
+    sessionId,
+    role: (rawTask.match(/ROLE_FILE:.*\/(\w+)\.md/) || [])[1] || null,
+    featureId: process.env.ECC_SPEC_FEATURE || null,
+    cwd: args.cwd,
+    meta: { mode: 'advisor', resume: Boolean(args.resume) }
+  });
+
   process.stdout.write(result.output + '\n');
   process.stdout.write(`\nSESSION_ID: ${sessionId}\n`);
   if (!result.ok) {
@@ -211,6 +222,16 @@ function runFileMode(argv) {
   const result = dispatch(backend, prompt, cwd);
   const sessionId = uuid();
   saveSession({ id: sessionId, backend, cwd, updated: timestamp(), prompt, output: result.output });
+
+  sessionRegistry.register({
+    harness: process.env.ECC_HARNESS || sessionRegistry.detectHarness(),
+    backend,
+    sessionId,
+    role: role || null,
+    featureId: process.env.ECC_SPEC_FEATURE || null,
+    cwd,
+    meta: { mode: 'file', taskFile }
+  });
 
   if (result.ok) {
     fs.writeFileSync(handoffFile, `# Handoff\n\n- Completed: ${timestamp()}\n- Backend: ${backend}\n- Worktree: \`${cwd}\`\n- SESSION_ID: ${sessionId}\n\n${result.output}\n`);

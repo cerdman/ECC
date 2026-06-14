@@ -1,6 +1,6 @@
 ---
 description: Kiro-style spec-driven workflow — constitution, spec, design, tasks, trace, audit, and gated sliced implementation with ecc2-backed state.
-argument-hint: "[constitution|specify|clarify|design|tasks|trace|analyze|checklist|implement|exec-plan] [args]"
+argument-hint: "[constitution|constitution-assistant|specify|clarify|design|tasks|trace|analyze|checklist|implement|exec-plan] [args]"
 ---
 
 # Spec Command
@@ -28,6 +28,12 @@ Parse `$ARGUMENTS` into one of:
 ### `constitution [principles...]`
 
 Follow `commands-src/constitution.md`. Write or update `.specify/memory/constitution.md`.
+
+### `constitution-assistant`
+
+Follow `commands-src/constitution-assistant.md`. Discover/scaffold/ratify repo,
+technical, and path-scoped constitutions:
+`node scripts/spec-kit/constitution.js list|resolve|scaffold ...`
 
 ### `specify <short description>`
 
@@ -80,3 +86,6 @@ Follow `commands-src/implement.md`. Sliced execution under guards; next slice:
 Implementation edits to files cited in `tasks.md` are denied until
 `gate.confirm = "approved"` and `active = true` in the feature `.state.json`.
 Disable with `ECC_SPEC_GUARD=off` if needed.
+
+After each implementation turn, `stop:spec-implementation-verify` runs independent
+constitution + test + Codex checks (Gate 7). Disable with `ECC_SPEC_VERIFY=off`.

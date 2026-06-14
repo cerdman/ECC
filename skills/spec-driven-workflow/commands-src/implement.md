@@ -26,6 +26,8 @@ Execute `tasks.md` in clean-session slices once the confirmation gate is approve
    - Mark completed tasks `[x]` in `tasks.md`.
    - `node scripts/spec-kit/trace.js <FEATURE_DIR> --write`.
    - `node scripts/spec-kit/state-sync.js <FEATURE_DIR>` (also runs every ~15 min via schedule).
+   - The **Stop hook** runs Gate 7 verify automatically; or run manually:
+     `node scripts/spec-kit/verify-implementation.js --json`.
    - Run the slice's build/lint/tests; fix regressions before the next slice.
 6. Repeat until all tasks are done, then hand off to `/spec` verify (Gate 6).
 

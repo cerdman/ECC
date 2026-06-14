@@ -1,0 +1,41 @@
+{
+  "feature": "001-feat",
+  "uid": "fafeafc9-006c-4a93-b714-3a9fef97bbc3",
+  "created": "2026-06-14T05:54:44.443Z",
+  "updated": "2026-06-14T05:54:44.443Z",
+  "phase": "specify",
+  "active": false,
+  "gate": {
+    "clarify": "pending",
+    "constitution": "pending",
+    "trace": "pending",
+    "audit": "pending",
+    "confirm": "pending",
+    "verify": "pending",
+    "implementationVerify": "fail"
+  },
+  "research": [],
+  "lastVerification": {
+    "session": "4915f8cd3fbf",
+    "at": "2026-06-14T05:54:44.443Z",
+    "files": [
+      "src/svc.ts"
+    ],
+    "features": [
+      "001-feat"
+    ],
+    "constitutions": [],
+    "tests": {
+      "ok": true,
+      "skipped": true,
+      "reason": "dry-run",
+      "command": null
+    },
+    "codex": {
+      "ok": true,
+      "skipped": true,
+      "reason": "codex skipped"
+    },
+    "pass": false
+  }
+}

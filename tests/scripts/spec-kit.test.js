@@ -317,5 +317,15 @@ test('getNextSlice returns earliest open user story when foundational done', () 
   assert.deepStrictEqual(next.slice.tasks, ['T010']);
 });
 
+test('findGoverningFeature matches tasks.md file paths', () => {
+  const repo = tmpRepo();
+  const dir = path.join(repo, 'specs', '011-gov');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'tasks.md'), '- [ ] T010 [US1] work in src/foo.ts');
+  const f = lib.findGoverningFeature(repo, path.join(repo, 'src', 'foo.ts'));
+  assert.ok(f);
+  assert.strictEqual(f.featureId, '011-gov');
+});
+
 console.log(`\nPassed: ${passed}\nFailed: ${failed}\n`);
 process.exit(failed > 0 ? 1 : 0);

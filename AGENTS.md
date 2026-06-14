@@ -75,7 +75,9 @@ gated implementation, use the `spec-driven-workflow` skill (`/spec`):
 | verify | `e2e-runner` / `verification-loop` |
 
 State sync: `node scripts/spec-kit/state-sync.js` (register ~15m job via `register-schedule.js`).
-Guards: GateGuard + `spec-workflow-guard` (armed after user confirms at `/spec analyze`).
+Guards: GateGuard (pre-edit) + `spec-workflow-guard` + **Gate 7** `stop:spec-implementation-verify` (constitutions + tests + Codex, post-turn).
+Constitutions: `node scripts/spec-kit/constitution.js resolve|scaffold|list`; `/spec constitution-assistant`.
+Dispatch sessions: `node scripts/dispatch/session-registry.js list [feature-id]`.
 
 ## Security Guidelines
 

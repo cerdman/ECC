@@ -1,6 +1,7 @@
 ---
 name: spec-driven-workflow
 description: Kiro-style spec-driven development lane ported from erd-spec-kit. Drives constitution -> spec.md -> design.md -> tasks.md -> trace.md with cross-document unique IDs (FR-, SC-, US, DES-, T###), a research/audit/confirm gate sequence, GateGuard + workflow-guard enforcement during implementation, ecc2 SQLite-backed project state refreshed asynchronously, clean-session slice execution via subagents/swarms, and a generated agent_execution_plan.md for multi-tool delivery (Claude + Codex review gate + Gemini/antigravity). Use for any feature that deserves durable specs, requirement traceability, and gated implementation. Drives the /spec command.
+origin: ECC (adapted from github/spec-kit via erd-spec-kit)
 ---
 
 # Spec-Driven Workflow (Kiro-style)
@@ -102,8 +103,23 @@ Each phase **delegates** to an existing ECC agent/skill — it does not do the w
 
 - **GateGuard** (gatekeeper) — the existing `pre:edit-write:gateguard-fact-force` fact-forcing gate is unchanged and still fires.
 - **Spec workflow guard** — `pre:edit-write:spec-workflow-guard` denies implementation edits inside a `specs/`-tracked feature unless: constitution + spec + design + tasks all exist, the phase-8 confirmation gate is approved, and the edit maps to an active (not-yet-done) `T###`. Disable via `ECC_DISABLED_HOOKS=pre:edit-write:spec-workflow-guard` (and the bash variant) or `ECC_SPEC_GUARD=off`.
+- **Post-implementation verify (Kiro Stop)** — after each agent turn during implementation, `stop:spec-implementation-verify` runs independent checks (constitution stack including technical + path-scoped rules, tests, Codex review gate). Disable via `ECC_SPEC_VERIFY=off`.
 
 The guard reads `specs/<id>/.state.json`; it stays inert until you set `gate.confirm = "approved"` (phase 8) and `active = true`, so it never blocks normal repo work outside an approved spec feature.
+
+## Constitution layers
+
+| Layer | Path | Scaffold |
+|-------|------|----------|
+| Repo | `.specify/memory/constitution.md` | `node scripts/spec-kit/constitution.js scaffold repo` |
+| Technical | `.specify/memory/technical-constitution.md` | `... scaffold technical` |
+| Path-scoped | `CONSTITUTION.md` in ancestor dirs | `... scaffold path --dir <dir>` |
+
+Resolve stack: `node scripts/spec-kit/constitution.js resolve <file> --json`. Assistant: `/spec constitution-assistant`.
+
+## Multi-harness session registry
+
+Dispatch stores resumable `SESSION_ID` per harness in `~/.claude/spec-kit/session-registry.json` (wired from `scripts/dispatch/run.js`). List: `node scripts/dispatch/session-registry.js list [feature-id]`.
 
 ## Sliced Implementation
 

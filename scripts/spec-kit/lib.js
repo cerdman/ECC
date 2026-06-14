@@ -329,6 +329,49 @@ function featureName(featureDir, specText) {
   return path.basename(featureDir);
 }
 
+function normalizePath(p) {
+  return String(p || '').replace(/\\/g, '/').toLowerCase();
+}
+
+/**
+ * Find the spec feature whose tasks.md governs targetFile (if any).
+ */
+function findGoverningFeature(repoRoot, targetFile) {
+  const root = repoRoot || findRepoRoot();
+  const relTarget = normalizePath(path.relative(root, path.resolve(targetFile)));
+  const baseTarget = normalizePath(path.basename(targetFile));
+  if (!relTarget || relTarget.startsWith('..')) return null;
+
+  for (const dir of listFeatureDirs(root)) {
+    const tasksText = readFileSafe(path.join(dir, 'tasks.md'));
+    if (!tasksText) continue;
+    const haystack = normalizePath(tasksText);
+    const referenced = haystack.includes(relTarget) ||
+      (baseTarget.length > 3 && haystack.includes('/' + baseTarget)) ||
+      (baseTarget.length > 3 && haystack.includes(' ' + baseTarget));
+    if (referenced) {
+      const state = readState(dir) || defaultState(path.basename(dir));
+      return { dir, state, tasksText, featureId: state.feature || path.basename(dir) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Task ids in tasks.md that reference targetFile.
+ */
+function taskIdsForFile(tasksText, repoRoot, targetFile) {
+  const { tasks } = parseTasks(tasksText || '');
+  const relTarget = normalizePath(path.relative(repoRoot, path.resolve(targetFile)));
+  const baseTarget = normalizePath(path.basename(targetFile));
+  return tasks
+    .filter(t => {
+      const d = normalizePath(t.description);
+      return d.includes(relTarget) || (baseTarget.length > 3 && d.includes(baseTarget));
+    })
+    .map(t => ({ id: t.id, done: t.done, description: t.description }));
+}
+
 /**
  * Build the trace model. Returns { summary, rows, scRows, gaps, orphans, exitCode }.
  */
@@ -626,6 +669,9 @@ module.exports = {
   syncTasksFromState,
   markTasksDone,
   getNextSlice,
+  normalizePath,
+  findGoverningFeature,
+  taskIdsForFile,
   renderTraceMarkdown,
   featureName
 };

@@ -61,6 +61,30 @@ explicitly accepted by the user.
 
 State: `gate.verify = "pass"`.
 
+## Gate 7 — Post-implementation verify (Kiro Stop hook)
+
+**When:** After the agent finishes a turn (`Stop`) during approved implementation.
+
+**Who (independent — not the implementing agent):**
+1. `scripts/spec-kit/verify-implementation.js` (constitution stack + tests)
+2. Codex `reviewer` via `scripts/dispatch/run.js` (mandatory when `ECC_SPEC_VERIFY_CODEX=1`)
+
+**Flow:**
+1. Agent states what it is implementing (`T###` / slice) and edits governed files.
+2. `post:edit:spec-impl-accumulator` records the batch.
+3. On `Stop`, `stop:spec-implementation-verify` runs:
+   - Resolves **repo** (`.specify/memory/constitution.md`), **technical**
+     (`.specify/memory/technical-constitution.md`), and **path-scoped**
+     (`CONSTITUTION.md` in ancestor dirs of each edited file)
+   - Runs targeted tests (trace-linked + `npm test` fallback)
+   - Dispatches Codex reviewer with constitution + task context
+4. Report injected as `additionalContext`; user addresses findings before next slice.
+
+State: `gate.implementationVerify = "pass"|"fail"` in feature `.state.json` (`lastVerification` blob).
+
+Disable: `ECC_SPEC_VERIFY=off` or `ECC_DISABLED_HOOKS` containing
+`spec-impl-accumulator` / `spec-implementation-verify`.
+
 ## Disabling
 
 The workflow guard honors `ECC_SPEC_GUARD=off` and
