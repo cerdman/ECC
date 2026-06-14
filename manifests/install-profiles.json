@@ -76,6 +76,7 @@
         "rules-core",
         "agents-core",
         "commands-core",
+        "spec-driven-workflow-runtime",
         "hooks-runtime",
         "platform-configs",
         "framework-language",

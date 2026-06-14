@@ -6,7 +6,7 @@ description: Create a multi-model implementation plan without modifying producti
 
 Multi-model collaborative planning - Context retrieval + Dual-model analysis → Generate step-by-step implementation plan.
 
-> **Prerequisite:** Requires the external `ccg-workflow` runtime, which is **not** part of the base ECC install. Initialize it with `npx ccg-workflow` to provision `~/.claude/bin/codeagent-wrapper` and the `~/.claude/.ccg/prompts/*` role files this command depends on. Without that runtime, this command will not run correctly.
+> **Backend:** This command dispatches to read-only advisor agents (Codex / Gemini) through the ECC-native wrapper `scripts/dispatch/run.js` — no external `ccg-workflow` runtime is required. Ensure the `codex` and/or `gemini` CLI is installed and on your `PATH`. External agents run **read-only** and return text/diffs; Claude applies all edits. Role prompts live in `scripts/dispatch/prompts/`.
 
 $ARGUMENTS
 
@@ -28,7 +28,7 @@ $ARGUMENTS
 
 ```
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement>
@@ -49,8 +49,8 @@ EOF",
 
 | Phase | Codex | Gemini |
 |-------|-------|--------|
-| Analysis | `~/.claude/.ccg/prompts/codex/analyzer.md` | `~/.claude/.ccg/prompts/gemini/analyzer.md` |
-| Planning | `~/.claude/.ccg/prompts/codex/architect.md` | `~/.claude/.ccg/prompts/gemini/architect.md` |
+| Analysis | `scripts/dispatch/prompts/codex/analyzer.md` | `scripts/dispatch/prompts/gemini/analyzer.md` |
+| Planning | `scripts/dispatch/prompts/codex/architect.md` | `scripts/dispatch/prompts/gemini/architect.md` |
 
 **Session Reuse**: Each call returns `SESSION_ID: xxx` (typically output by wrapper), **MUST save** for subsequent `/ccg:execute` use.
 
@@ -133,12 +133,12 @@ mcp__ace-tool__search_context({
 Distribute **original requirement** (without preset opinions) to both models:
 
 1. **Codex Backend Analysis**:
-   - ROLE_FILE: `~/.claude/.ccg/prompts/codex/analyzer.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/codex/analyzer.md`
    - Focus: Technical feasibility, architecture impact, performance considerations, potential risks
    - OUTPUT: Multi-perspective solutions + pros/cons analysis
 
 2. **Gemini Frontend Analysis**:
-   - ROLE_FILE: `~/.claude/.ccg/prompts/gemini/analyzer.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/gemini/analyzer.md`
    - Focus: UI/UX impact, user experience, visual design
    - OUTPUT: Multi-perspective solutions + pros/cons analysis
 
@@ -158,11 +158,11 @@ Integrate perspectives and iterate for optimization:
 To reduce risk of omissions in Claude's synthesized plan, can parallel have both models output "plan drafts" (still **NOT allowed** to modify files):
 
 1. **Codex Plan Draft** (Backend authority):
-   - ROLE_FILE: `~/.claude/.ccg/prompts/codex/architect.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/codex/architect.md`
    - OUTPUT: Step-by-step plan + pseudo-code (focus: data flow/edge cases/error handling/test strategy)
 
 2. **Gemini Plan Draft** (Frontend authority):
-   - ROLE_FILE: `~/.claude/.ccg/prompts/gemini/architect.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/gemini/architect.md`
    - OUTPUT: Step-by-step plan + pseudo-code (focus: information architecture/interaction/accessibility/visual consistency)
 
 Wait for both models' complete results with `TaskOutput`, record key differences in their suggestions.

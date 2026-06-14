@@ -424,19 +424,33 @@ python3 ./ecc_dashboard.py
 - Project logo in header and taskbar
 - Search and filter across all components
 
-### Multi-model commands require additional setup
+### Multi-model commands (ECC-native dispatch)
 
-> WARNING: `multi-*` commands are **not** covered by the base plugin/rules install above.
+> The `multi-*` commands (`/multi-plan`, `/multi-execute`, `/multi-backend`, `/multi-frontend`, `/multi-workflow`) dispatch work to read-only advisor agents (Codex / Gemini) through the **ECC-native wrapper** `scripts/dispatch/run.js`. No external `ccg-workflow` runtime is required.
 >
-> To use `/multi-plan`, `/multi-execute`, `/multi-backend`, `/multi-frontend`, and `/multi-workflow`, you must also install the `ccg-workflow` runtime.
+> Requirements:
+> - The `codex` and/or `gemini` CLI installed and on your `PATH`.
+> - Role prompts ship in-repo at `scripts/dispatch/prompts/{codex,gemini}/*.md`.
 >
-> Initialize it with `npx ccg-workflow`.
->
-> That runtime provides the external dependencies these commands expect, including:
-> - `~/.claude/bin/codeagent-wrapper`
-> - `~/.claude/.ccg/prompts/*`
->
-> Without `ccg-workflow`, these `multi-*` commands will not run correctly.
+> External agents run **read-only** and return text / Unified Diff Patches; Claude remains the sole filesystem writer. The same wrapper powers the `spec-driven-workflow` (`/spec`) Codex review gate and worktree swarm lanes.
+
+### Spec-driven workflow (`/spec`)
+
+Kiro-style spec-first development for features that need traceability and gated implementation:
+
+```bash
+/spec constitution Establish testing and security principles
+/spec specify Build user authentication with OAuth2
+/spec clarify
+/spec design
+/spec tasks
+/spec trace
+/spec analyze          # audit + Codex review gate; user replies "approved"
+/spec exec-plan        # optional multi-tool delivery plan
+/spec implement        # clean-session slices under workflow guard
+```
+
+Artifacts live under `specs/<NNN-feature>/` with linked IDs across `spec.md`, `design.md`, `tasks.md`, and generated `trace.md`. State syncs to `ecc2` via `node scripts/spec-kit/state-sync.js`; register the ~15-minute schedule with `node scripts/spec-kit/register-schedule.js`.
 
 ---
 

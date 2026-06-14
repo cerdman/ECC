@@ -60,6 +60,23 @@ Use agents proactively without user prompt:
 
 Use parallel execution for independent operations — launch multiple agents simultaneously.
 
+## Spec-Driven Workflow (`/spec`)
+
+For features that need durable specs, requirement traceability (FR-/DES-/T###), and
+gated implementation, use the `spec-driven-workflow` skill (`/spec`):
+
+| Phase | Delegate |
+|-------|----------|
+| research | `deep-research` / `code-explorer` |
+| specify / tasks | `planner` |
+| design | `architect` |
+| analyze | `code-reviewer` + Codex review gate (`scripts/dispatch/codex.sh`) |
+| implement | `tdd-guide` + worktree swarm via `scripts/dispatch/*` |
+| verify | `e2e-runner` / `verification-loop` |
+
+State sync: `node scripts/spec-kit/state-sync.js` (register ~15m job via `register-schedule.js`).
+Guards: GateGuard + `spec-workflow-guard` (armed after user confirms at `/spec analyze`).
+
 ## Security Guidelines
 
 **Before ANY commit:**

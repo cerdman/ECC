@@ -6,7 +6,7 @@ description: Run a full multi-model development workflow with research, planning
 
 Multi-model collaborative development workflow (Research → Ideation → Plan → Execute → Optimize → Review), with intelligent routing: Frontend → Gemini, Backend → Codex.
 
-> **Prerequisite:** Requires the external `ccg-workflow` runtime, which is **not** part of the base ECC install. Initialize it with `npx ccg-workflow` to provision `~/.claude/bin/codeagent-wrapper` and the `~/.claude/.ccg/prompts/*` role files this command depends on. Without that runtime, this command will not run correctly.
+> **Backend:** This command dispatches to read-only advisor agents (Codex / Gemini) through the ECC-native wrapper `scripts/dispatch/run.js` — no external `ccg-workflow` runtime is required. Ensure the `codex` and/or `gemini` CLI is installed and on your `PATH`. External agents run **read-only** and return text/diffs; Claude applies all edits. Role prompts live in `scripts/dispatch/prompts/`.
 
 Structured development workflow with quality gates, MCP services, and multi-model collaboration.
 
@@ -42,7 +42,7 @@ You are the **Orchestrator**, coordinating a multi-model collaborative system (R
 ```
 # New session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -57,7 +57,7 @@ EOF",
 
 # Resume session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -78,9 +78,9 @@ EOF",
 
 | Phase | Codex | Gemini |
 |-------|-------|--------|
-| Analysis | `~/.claude/.ccg/prompts/codex/analyzer.md` | `~/.claude/.ccg/prompts/gemini/analyzer.md` |
-| Planning | `~/.claude/.ccg/prompts/codex/architect.md` | `~/.claude/.ccg/prompts/gemini/architect.md` |
-| Review | `~/.claude/.ccg/prompts/codex/reviewer.md` | `~/.claude/.ccg/prompts/gemini/reviewer.md` |
+| Analysis | `scripts/dispatch/prompts/codex/analyzer.md` | `scripts/dispatch/prompts/gemini/analyzer.md` |
+| Planning | `scripts/dispatch/prompts/codex/architect.md` | `scripts/dispatch/prompts/gemini/architect.md` |
+| Review | `scripts/dispatch/prompts/codex/reviewer.md` | `scripts/dispatch/prompts/gemini/reviewer.md` |
 
 **Session Reuse**: Each call returns `SESSION_ID: xxx`, use `resume xxx` subcommand for subsequent phases (note: `resume`, not `--resume`).
 

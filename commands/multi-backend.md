@@ -6,7 +6,7 @@ description: Run a backend-focused multi-model workflow for APIs, algorithms, da
 
 Backend-focused workflow (Research → Ideation → Plan → Execute → Optimize → Review), Codex-led.
 
-> **Prerequisite:** Requires the external `ccg-workflow` runtime, which is **not** part of the base ECC install. Initialize it with `npx ccg-workflow` to provision `~/.claude/bin/codeagent-wrapper` and the `~/.claude/.ccg/prompts/*` role files this command depends on. Without that runtime, this command will not run correctly.
+> **Backend:** This command dispatches to read-only advisor agents (Codex / Gemini) through the ECC-native wrapper `scripts/dispatch/run.js` — no external `ccg-workflow` runtime is required. Ensure the `codex` and/or `gemini` CLI is installed and on your `PATH`. External agents run **read-only** and return text/diffs; Claude applies all edits. Role prompts live in `scripts/dispatch/prompts/`.
 
 ## Usage
 
@@ -38,7 +38,7 @@ You are the **Backend Orchestrator**, coordinating multi-model collaboration for
 ```
 # New session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend codex - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend codex - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -53,7 +53,7 @@ EOF",
 
 # Resume session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend codex resume <SESSION_ID> - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend codex resume <SESSION_ID> - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -71,9 +71,9 @@ EOF",
 
 | Phase | Codex |
 |-------|-------|
-| Analysis | `~/.claude/.ccg/prompts/codex/analyzer.md` |
-| Planning | `~/.claude/.ccg/prompts/codex/architect.md` |
-| Review | `~/.claude/.ccg/prompts/codex/reviewer.md` |
+| Analysis | `scripts/dispatch/prompts/codex/analyzer.md` |
+| Planning | `scripts/dispatch/prompts/codex/architect.md` |
+| Review | `scripts/dispatch/prompts/codex/reviewer.md` |
 
 **Session Reuse**: Each call returns `SESSION_ID: xxx`, use `resume xxx` for subsequent phases. Save `CODEX_SESSION` in Phase 2, use `resume` in Phases 3 and 5.
 
@@ -105,7 +105,7 @@ EOF",
 `[Mode: Ideation]` - Codex-led analysis
 
 **MUST call Codex** (follow call specification above):
-- ROLE_FILE: `~/.claude/.ccg/prompts/codex/analyzer.md`
+- ROLE_FILE: `scripts/dispatch/prompts/codex/analyzer.md`
 - Requirement: Enhanced requirement (or $ARGUMENTS if not enhanced)
 - Context: Project context from Phase 1
 - OUTPUT: Technical feasibility analysis, recommended solutions (at least 2), risk assessment
@@ -119,7 +119,7 @@ Output solutions (at least 2), wait for user selection.
 `[Mode: Plan]` - Codex-led planning
 
 **MUST call Codex** (use `resume <CODEX_SESSION>` to reuse session):
-- ROLE_FILE: `~/.claude/.ccg/prompts/codex/architect.md`
+- ROLE_FILE: `scripts/dispatch/prompts/codex/architect.md`
 - Requirement: User's selected solution
 - Context: Analysis results from Phase 2
 - OUTPUT: File structure, function/class design, dependency relationships
@@ -139,7 +139,7 @@ Claude synthesizes plan, save to `.claude/plan/task-name.md` after user approval
 `[Mode: Optimize]` - Codex-led review
 
 **MUST call Codex** (follow call specification above):
-- ROLE_FILE: `~/.claude/.ccg/prompts/codex/reviewer.md`
+- ROLE_FILE: `scripts/dispatch/prompts/codex/reviewer.md`
 - Requirement: Review the following backend code changes
 - Context: git diff or code content
 - OUTPUT: Security, performance, error handling, API compliance issues list

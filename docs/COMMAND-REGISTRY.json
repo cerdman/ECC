@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "totalCommands": 84,
+  "totalCommands": 86,
   "commands": [
     {
       "command": "aside",
@@ -894,6 +894,17 @@
       "path": "commands/skill-health.md"
     },
     {
+      "command": "spec",
+      "description": "Kiro-style spec-driven workflow — constitution, spec, design, tasks, trace, audit, and gated sliced implementation with ecc2-backed state.",
+      "type": "review",
+      "primaryAgents": [],
+      "allAgents": [],
+      "skills": [
+        "spec-driven-workflow"
+      ],
+      "path": "commands/spec.md"
+    },
+    {
       "command": "test-coverage",
       "description": "Analyze coverage, identify gaps, and generate missing tests toward the target threshold.",
       "type": "testing",
@@ -919,6 +930,17 @@
       "allAgents": [],
       "skills": [],
       "path": "commands/update-docs.md"
+    },
+    {
+      "command": "workflow",
+      "description": "Run the AI-augmented engineering workflow — requirements, discovery, PRD, tech plan, design, implement, test, review — with persistent multi-workflow state and per-phase memory.",
+      "type": "testing",
+      "primaryAgents": [],
+      "allAgents": [],
+      "skills": [
+        "ai-augmented-workflow"
+      ],
+      "path": "commands/workflow.md"
     }
   ],
   "statistics": {
@@ -928,8 +950,8 @@
       "orchestration": 11,
       "planning": 2,
       "refactoring": 1,
-      "review": 9,
-      "testing": 52
+      "review": 10,
+      "testing": 53
     },
     "topAgents": [
       {

@@ -6,7 +6,7 @@ description: Execute a multi-model implementation plan while preserving Claude a
 
 Multi-model collaborative execution - Get prototype from plan → Claude refactors and implements → Multi-model audit and delivery.
 
-> **Prerequisite:** Requires the external `ccg-workflow` runtime, which is **not** part of the base ECC install. Initialize it with `npx ccg-workflow` to provision `~/.claude/bin/codeagent-wrapper` and the `~/.claude/.ccg/prompts/*` role files this command depends on. Without that runtime, this command will not run correctly.
+> **Backend:** This command dispatches to read-only advisor agents (Codex / Gemini) through the ECC-native wrapper `scripts/dispatch/run.js` — no external `ccg-workflow` runtime is required. Ensure the `codex` and/or `gemini` CLI is installed and on your `PATH`. External agents run **read-only** and return text/diffs; Claude applies all edits. Role prompts live in `scripts/dispatch/prompts/`.
 
 $ARGUMENTS
 
@@ -29,7 +29,7 @@ $ARGUMENTS
 ```
 # Resume session call (recommended) - Implementation Prototype
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <task description>
@@ -44,7 +44,7 @@ EOF",
 
 # New session call - Implementation Prototype
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}- \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <task description>
@@ -62,7 +62,7 @@ EOF",
 
 ```
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend <codex|gemini> {{GEMINI_MODEL_FLAG}}resume <SESSION_ID> - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Scope: Audit the final code changes.
@@ -90,8 +90,8 @@ EOF",
 
 | Phase | Codex | Gemini |
 |-------|-------|--------|
-| Implementation | `~/.claude/.ccg/prompts/codex/architect.md` | `~/.claude/.ccg/prompts/gemini/frontend.md` |
-| Review | `~/.claude/.ccg/prompts/codex/reviewer.md` | `~/.claude/.ccg/prompts/gemini/reviewer.md` |
+| Implementation | `scripts/dispatch/prompts/codex/architect.md` | `scripts/dispatch/prompts/gemini/frontend.md` |
+| Review | `scripts/dispatch/prompts/codex/reviewer.md` | `scripts/dispatch/prompts/gemini/reviewer.md` |
 
 **Session Reuse**: If `/ccg:plan` provided SESSION_ID, use `resume <SESSION_ID>` to reuse context.
 
@@ -181,7 +181,7 @@ mcp__ace-tool__search_context({
 
 **Limit**: Context < 32k tokens
 
-1. Call Gemini (use `~/.claude/.ccg/prompts/gemini/frontend.md`)
+1. Call Gemini (use `scripts/dispatch/prompts/gemini/frontend.md`)
 2. Input: Plan content + retrieved context + target files
 3. OUTPUT: `Unified Diff Patch ONLY. Strictly prohibit any actual modifications.`
 4. **Gemini is frontend design authority, its CSS/React/Vue prototype is the final visual baseline**
@@ -190,7 +190,7 @@ mcp__ace-tool__search_context({
 
 #### Route B: Backend/Logic/Algorithms → Codex
 
-1. Call Codex (use `~/.claude/.ccg/prompts/codex/architect.md`)
+1. Call Codex (use `scripts/dispatch/prompts/codex/architect.md`)
 2. Input: Plan content + retrieved context + target files
 3. OUTPUT: `Unified Diff Patch ONLY. Strictly prohibit any actual modifications.`
 4. **Codex is backend logic authority, leverage its logical reasoning and debug capabilities**
@@ -251,12 +251,12 @@ mcp__ace-tool__search_context({
 **After changes take effect, MUST immediately parallel call** Codex and Gemini for Code Review:
 
 1. **Codex Review** (`run_in_background: true`):
-   - ROLE_FILE: `~/.claude/.ccg/prompts/codex/reviewer.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/codex/reviewer.md`
    - Input: Changed Diff + target files
    - Focus: Security, performance, error handling, logic correctness
 
 2. **Gemini Review** (`run_in_background: true`):
-   - ROLE_FILE: `~/.claude/.ccg/prompts/gemini/reviewer.md`
+   - ROLE_FILE: `scripts/dispatch/prompts/gemini/reviewer.md`
    - Input: Changed Diff + target files
    - Focus: Accessibility, design consistency, user experience
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Spec-Driven Workflow"
+  short_description: "Kiro-style spec chain with trace IDs"
+  brand_color: "#0EA5E9"
+  default_prompt: "Use $spec-driven-workflow to run the /spec constitution-to-implement lane."
+policy:
+  allow_implicit_invocation: true

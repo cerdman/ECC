@@ -6,7 +6,7 @@ description: Run a frontend-focused multi-model workflow for components, layouts
 
 Frontend-focused workflow (Research → Ideation → Plan → Execute → Optimize → Review), Gemini-led.
 
-> **Prerequisite:** Requires the external `ccg-workflow` runtime, which is **not** part of the base ECC install. Initialize it with `npx ccg-workflow` to provision `~/.claude/bin/codeagent-wrapper` and the `~/.claude/.ccg/prompts/*` role files this command depends on. Without that runtime, this command will not run correctly.
+> **Backend:** This command dispatches to read-only advisor agents (Codex / Gemini) through the ECC-native wrapper `scripts/dispatch/run.js` — no external `ccg-workflow` runtime is required. Ensure the `codex` and/or `gemini` CLI is installed and on your `PATH`. External agents run **read-only** and return text/diffs; Claude applies all edits. Role prompts live in `scripts/dispatch/prompts/`.
 
 ## Usage
 
@@ -38,7 +38,7 @@ You are the **Frontend Orchestrator**, coordinating multi-model collaboration fo
 ```
 # New session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend gemini --gemini-model gemini-3-pro-preview - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend gemini --gemini-model gemini-3-pro-preview - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -53,7 +53,7 @@ EOF",
 
 # Resume session call
 Bash({
-  command: "~/.claude/bin/codeagent-wrapper {{LITE_MODE_FLAG}}--backend gemini --gemini-model gemini-3-pro-preview resume <SESSION_ID> - \"$PWD\" <<'EOF'
+  command: "node scripts/dispatch/run.js {{LITE_MODE_FLAG}}--backend gemini --gemini-model gemini-3-pro-preview resume <SESSION_ID> - \"$PWD\" <<'EOF'
 ROLE_FILE: <role prompt path>
 <TASK>
 Requirement: <enhanced requirement (or $ARGUMENTS if not enhanced)>
@@ -71,9 +71,9 @@ EOF",
 
 | Phase | Gemini |
 |-------|--------|
-| Analysis | `~/.claude/.ccg/prompts/gemini/analyzer.md` |
-| Planning | `~/.claude/.ccg/prompts/gemini/architect.md` |
-| Review | `~/.claude/.ccg/prompts/gemini/reviewer.md` |
+| Analysis | `scripts/dispatch/prompts/gemini/analyzer.md` |
+| Planning | `scripts/dispatch/prompts/gemini/architect.md` |
+| Review | `scripts/dispatch/prompts/gemini/reviewer.md` |
 
 **Session Reuse**: Each call returns `SESSION_ID: xxx`, use `resume xxx` for subsequent phases. Save `GEMINI_SESSION` in Phase 2, use `resume` in Phases 3 and 5.
 
@@ -105,7 +105,7 @@ EOF",
 `[Mode: Ideation]` - Gemini-led analysis
 
 **MUST call Gemini** (follow call specification above):
-- ROLE_FILE: `~/.claude/.ccg/prompts/gemini/analyzer.md`
+- ROLE_FILE: `scripts/dispatch/prompts/gemini/analyzer.md`
 - Requirement: Enhanced requirement (or $ARGUMENTS if not enhanced)
 - Context: Project context from Phase 1
 - OUTPUT: UI feasibility analysis, recommended solutions (at least 2), UX evaluation
@@ -119,7 +119,7 @@ Output solutions (at least 2), wait for user selection.
 `[Mode: Plan]` - Gemini-led planning
 
 **MUST call Gemini** (use `resume <GEMINI_SESSION>` to reuse session):
-- ROLE_FILE: `~/.claude/.ccg/prompts/gemini/architect.md`
+- ROLE_FILE: `scripts/dispatch/prompts/gemini/architect.md`
 - Requirement: User's selected solution
 - Context: Analysis results from Phase 2
 - OUTPUT: Component structure, UI flow, styling approach
@@ -139,7 +139,7 @@ Claude synthesizes plan, save to `.claude/plan/task-name.md` after user approval
 `[Mode: Optimize]` - Gemini-led review
 
 **MUST call Gemini** (follow call specification above):
-- ROLE_FILE: `~/.claude/.ccg/prompts/gemini/reviewer.md`
+- ROLE_FILE: `scripts/dispatch/prompts/gemini/reviewer.md`
 - Requirement: Review the following frontend code changes
 - Context: git diff or code content
 - OUTPUT: Accessibility, responsiveness, performance, design consistency issues list

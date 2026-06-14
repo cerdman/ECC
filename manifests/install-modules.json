@@ -261,6 +261,7 @@
         "skills/skill-scout",
         "skills/skill-stocktake",
         "skills/strategic-compact",
+        "skills/spec-driven-workflow",
         "skills/tdd-workflow",
         "skills/verification-loop",
         "skills/windows-desktop-e2e"
@@ -896,6 +897,35 @@
       "dependencies": [],
       "defaultInstall": false,
       "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "spec-driven-workflow-runtime",
+      "kind": "commands",
+      "description": "Spec-driven workflow scripts, dispatch wrappers, and /spec command.",
+      "paths": [
+        "commands/spec.md",
+        "scripts/spec-kit",
+        "scripts/dispatch"
+      ],
+      "targets": [
+        "claude",
+        "claude-project",
+        "cursor",
+        "antigravity",
+        "codex",
+        "opencode",
+        "codebuddy",
+        "joycode",
+        "qwen",
+        "zed"
+      ],
+      "dependencies": [
+        "workflow-quality",
+        "hooks-runtime"
+      ],
+      "defaultInstall": true,
+      "cost": "light",
       "stability": "stable"
     },
     {

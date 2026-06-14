@@ -144,6 +144,7 @@ skills:
   - springboot-tdd
   - springboot-verification
   - strategic-compact
+  - spec-driven-workflow
   - swift-actor-persistence
   - swift-concurrency-6-2
   - swift-protocol-di-testing
@@ -236,6 +237,7 @@ commands:
   - security-scan
   - sessions
   - setup-pm
+  - spec
   - skill-create
   - skill-health
   - test-coverage
