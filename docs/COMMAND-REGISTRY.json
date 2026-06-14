@@ -896,7 +896,7 @@
     {
       "command": "spec",
       "description": "Kiro-style spec-driven workflow — constitution, spec, design, tasks, trace, audit, and gated sliced implementation with ecc2-backed state.",
-      "type": "review",
+      "type": "testing",
       "primaryAgents": [],
       "allAgents": [],
       "skills": [
@@ -933,12 +933,13 @@
     },
     {
       "command": "workflow",
-      "description": "Run the AI-augmented engineering workflow — requirements, discovery, PRD, tech plan, design, implement, test, review — with persistent multi-workflow state and per-phase memory.",
+      "description": "Guided ECC engineering workflow with two tracks — prd (requirements, discovery, PRD, tech plan, design, implement, test, review) and spec (Kiro/spec-kit: constitution, spec, design, tasks, trace, analyze, confirm, implement, verify) — with persistent multi-workflow state and per-phase memory.",
       "type": "testing",
       "primaryAgents": [],
       "allAgents": [],
       "skills": [
-        "ai-augmented-workflow"
+        "ai-augmented-workflow",
+        "spec-driven-workflow"
       ],
       "path": "commands/workflow.md"
     }
@@ -950,8 +951,8 @@
       "orchestration": 11,
       "planning": 2,
       "refactoring": 1,
-      "review": 10,
-      "testing": 53
+      "review": 9,
+      "testing": 54
     },
     "topAgents": [
       {

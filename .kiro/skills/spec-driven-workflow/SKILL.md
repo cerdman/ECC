@@ -6,6 +6,10 @@ origin: ECC (adapted from github/spec-kit via erd-spec-kit)
 
 # Spec-Driven Workflow (Kiro-style)
 
+This skill is the **`spec` track of `/ecc:workflow`** (guided entry:
+`/ecc:workflow start "<name>" --track spec`). `/spec` is the direct alias into
+this track. The PRD-oriented `prd` track is the `ai-augmented-workflow` skill.
+
 A spec-first pipeline. You research, then write a constitution and a chain of
 linked documents — `spec.md` -> `design.md` -> `tasks.md` -> `trace.md` — where
 **every requirement, design element, and task carries a unique, cross-referenced
@@ -30,7 +34,7 @@ the docs and the database.
 - Work spans multiple sessions/agents and needs gated, state-tracked execution.
 - You want a constitution to govern decisions across the whole feature.
 - Skip for trivial single-file changes; use `/feature-dev` or `orch-*` instead.
-- For lightweight PRD-only pipelines without ID traceability, use `ai-augmented-workflow` (`/workflow`).
+- For lightweight PRD-only pipelines without ID traceability, use the `prd` track: `ai-augmented-workflow` (`/ecc:workflow start <name>` or `/workflow`).
 
 ## Artifact Layout
 

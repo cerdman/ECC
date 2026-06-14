@@ -60,10 +60,13 @@ Use agents proactively without user prompt:
 
 Use parallel execution for independent operations — launch multiple agents simultaneously.
 
-## Spec-Driven Workflow (`/spec`)
+## Spec-Driven Workflow (`/ecc:workflow --track spec`)
 
 For features that need durable specs, requirement traceability (FR-/DES-/T###), and
-gated implementation, use the `spec-driven-workflow` skill (`/spec`):
+gated implementation, use the **`spec` track of `/ecc:workflow`**
+(`/ecc:workflow start "<name>" --track spec`), backed by the
+`spec-driven-workflow` skill. `/spec` is the direct alias into this track. The
+default `prd` track is the `ai-augmented-workflow` skill:
 
 | Phase | Delegate |
 |-------|----------|

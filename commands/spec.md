@@ -5,10 +5,17 @@ argument-hint: "[constitution|constitution-assistant|specify|clarify|design|task
 
 # Spec Command
 
-Drive a feature through the `spec-driven-workflow` skill's artifact chain:
+`/spec` is the **alias/shortcut into the `spec` track of `/ecc:workflow`**.
+It drives a feature through the `spec-driven-workflow` skill's artifact chain:
 `constitution` -> `spec.md` -> `design.md` -> `tasks.md` -> `trace.md`, with
 cross-document IDs (FR-/SC-/US/DES-/T###), audit/confirm gates, GateGuard +
 spec workflow guard during implementation, and ecc2-backed state sync.
+
+The equivalent guided entry is
+`/ecc:workflow start "<name>" --track spec --description "<desc>"`, which
+scaffolds the feature and registers the workflow record in one step. Use
+`/spec` when you want the spec chain directly; use `/ecc:workflow` when you
+want the unified guided shell and cross-track listing.
 
 Read `skills/spec-driven-workflow/SKILL.md` and the matching file under
 `skills/spec-driven-workflow/commands-src/` before acting.
@@ -39,6 +46,13 @@ technical, and path-scoped constitutions:
 
 Follow `commands-src/specify.md`. Run:
 `node scripts/spec-kit/feature.js new "<description>" --json` then fill `spec.md`.
+
+After scaffolding, register the feature as a spec-track workflow so it shows up
+in `/ecc:workflow list` and the session-start context. Use `--feature` to link
+the **existing** `specs/<id>/` (this does not re-scaffold):
+`node "$ECC_ROOT/scripts/workflow.js" start "<short name>" --track spec --feature <FEATURE_ID>`
+Skip this if you began via `/ecc:workflow start ... --track spec` (the record
+already exists).
 
 ### `clarify`
 

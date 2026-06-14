@@ -102,6 +102,46 @@ const PHASES = [
   }
 ];
 
+/**
+ * Spec-driven (Kiro/spec-kit) track phases. Mirrors the phase list in
+ * scripts/spec-kit/lib.js but carries the workflow-record shape (stage, role,
+ * agents, gate) so a spec feature can be tracked in the same registry as a
+ * PRD-oriented workflow. The spec feature's specs/<id>/.state.json stays the
+ * source of truth for the guard-critical fields (active, gate.confirm); these
+ * phases are the human-facing pipeline view.
+ */
+const SPEC_PHASES = [
+  { id: 'research', name: 'Research prior art and constraints', stage: 'requirements', role: 'engineer', agents: ['deep-research'], optional: false, gate: false },
+  { id: 'constitution', name: 'Establish governing principles', stage: 'requirements', role: 'engineer', agents: [], optional: false, gate: false },
+  { id: 'specify', name: 'Write the feature specification (FR/SC/US)', stage: 'planning', role: 'engineer', agents: ['planner'], optional: false, gate: false },
+  { id: 'clarify', name: 'Resolve specification ambiguities', stage: 'planning', role: 'engineer', agents: [], optional: false, gate: false },
+  { id: 'design', name: 'Design elements (DES) traced to requirements', stage: 'planning', role: 'design engineer', agents: ['architect'], optional: false, gate: false },
+  { id: 'tasks', name: 'Break work into traceable tasks (T###)', stage: 'planning', role: 'engineer', agents: ['planner'], optional: false, gate: false },
+  { id: 'trace', name: 'Build the traceability matrix', stage: 'planning', role: 'engineer', agents: [], optional: false, gate: false },
+  { id: 'analyze', name: 'Cross-artifact audit + Codex review gate', stage: 'review', role: 'engineer', agents: ['code-reviewer'], optional: false, gate: true },
+  { id: 'confirm', name: 'Explicit user approval gate', stage: 'review', role: 'user', agents: [], optional: false, gate: true },
+  { id: 'implement', name: 'Implement sliced tasks under guards', stage: 'implementation', role: 'engineer', agents: ['tdd-guide'], optional: false, gate: false },
+  { id: 'verify', name: 'Post-implementation verification (Gate 7)', stage: 'review', role: 'engineer', agents: ['e2e-runner'], optional: false, gate: true }
+];
+
+const TRACKS = { prd: PHASES, spec: SPEC_PHASES };
+
+function resolveTrack(track) {
+  return track && TRACKS[track] ? track : 'prd';
+}
+
+let specLibCache;
+function getSpecLib() {
+  if (specLibCache === undefined) {
+    try {
+      specLibCache = require('../spec-kit/lib');
+    } catch (_error) {
+      specLibCache = null;
+    }
+  }
+  return specLibCache;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -137,13 +177,14 @@ function memoryPath(id, options = {}) {
 }
 
 function buildPhases(options = {}) {
-  return PHASES.map((phase, index) => ({
+  const phases = TRACKS[resolveTrack(options.track)];
+  return phases.map((phase, index) => ({
     id: phase.id,
     name: phase.name,
     stage: phase.stage,
     role: phase.role,
     gate: phase.gate,
-    status: phase.optional && options.design === false ? 'skipped' : index === 0 ? 'active' : 'pending',
+    status: phase.optional && phase.id === 'design' && options.design === false ? 'skipped' : index === 0 ? 'active' : 'pending',
     agents: [...phase.agents],
     artifacts: [],
     notes: [],
@@ -174,11 +215,18 @@ function createWorkflow(name, options = {}) {
     name: trimmed,
     description: options.description || '',
     status: 'active',
+    track: resolveTrack(options.track),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     phases: buildPhases(options),
     memory: []
   };
+  if (options.spec && options.spec.featureId) {
+    workflow.spec = {
+      featureId: options.spec.featureId,
+      featureDir: options.spec.featureDir || null
+    };
+  }
 
   fs.mkdirSync(path.join(baseDir, id), { recursive: true });
   fs.writeFileSync(statePath(id, options), `${JSON.stringify(workflow, null, 2)}\n`);
@@ -362,20 +410,41 @@ function summarizeWorkflows(options = {}) {
 
   const maxChars = Number.isFinite(options.maxChars) ? options.maxChars : 2000;
   const lines = ['## Active ECC workflows'];
+  let hasSpecTrack = false;
   for (const workflow of workflows) {
     const phase = currentPhase(workflow);
     const doneCount = workflow.phases.filter(entry => entry.status === 'done').length;
     const lastMemory = workflow.memory[workflow.memory.length - 1];
-    let line = `- ${workflow.name} [${workflow.id}] — ${doneCount}/${workflow.phases.length} phases done`;
+    const trackLabel = workflow.track === 'spec' ? 'spec' : 'prd';
+    let line = `- [${trackLabel}] ${workflow.name} [${workflow.id}] — ${doneCount}/${workflow.phases.length} phases done`;
     if (phase) {
       line += `; current: ${phase.id} (${STAGES[phase.stage].name}${phase.agents.length ? `; agents: ${phase.agents.join(', ')}` : ''})`;
     }
+
+    if (workflow.track === 'spec' && workflow.spec && workflow.spec.featureDir) {
+      hasSpecTrack = true;
+      const specLib = getSpecLib();
+      const specState = specLib ? specLib.readState(workflow.spec.featureDir) : null;
+      if (specState) {
+        const approved = specState.gate && specState.gate.confirm === 'approved';
+        line += `; spec ${workflow.spec.featureId} @ ${specState.phase || 'specify'}` +
+          `; gate: ${approved ? 'approved (implementation armed)' : 'unapproved (governed edits blocked)'}`;
+      } else {
+        line += `; spec ${workflow.spec.featureId}`;
+      }
+    }
+
     if (lastMemory) {
       line += `; last note: ${lastMemory.note}`;
     }
     lines.push(line);
   }
-  lines.push('Run /workflow status for details, /workflow advance to move to the next phase.');
+  lines.push('Run /ecc:workflow status for details, /ecc:workflow advance to move to the next phase.');
+  if (hasSpecTrack) {
+    lines.push('Spec track: /ecc:workflow start <name> --track spec (alias: /spec). Approve at the confirm gate to arm implementation.');
+  }
+  // Rich constant context: keep the agent aware of the always-on gates.
+  lines.push('Gates active: GateGuard (investigate before editing — list importers/API, verify data schemas, quote the instruction) + spec workflow guard (spec-governed files stay blocked until gate.confirm = approved).');
 
   const summary = lines.join('\n');
   return summary.length > maxChars ? `${summary.slice(0, maxChars - 12).trimEnd()}\n[truncated]` : summary;
@@ -383,6 +452,8 @@ function summarizeWorkflows(options = {}) {
 
 module.exports = {
   PHASES,
+  SPEC_PHASES,
+  TRACKS,
   STAGES,
   PHASE_STATUSES,
   WORKFLOW_STATUSES,

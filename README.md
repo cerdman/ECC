@@ -434,9 +434,27 @@ python3 ./ecc_dashboard.py
 >
 > External agents run **read-only** and return text / Unified Diff Patches; Claude remains the sole filesystem writer. The same wrapper powers the `spec-driven-workflow` (`/spec`) Codex review gate and worktree swarm lanes.
 
-### Spec-driven workflow (`/spec`)
+### Guided workflow (`/ecc:workflow`) — two tracks
 
-Kiro-style spec-first development for features that need traceability and gated implementation:
+`/ecc:workflow` (alias `/workflow`) is the single guided entry for feature work. Pick a track:
+
+- **`prd`** (default) — PRD-oriented pipeline (`ai-augmented-workflow`): requirements, discovery, PRD, tech plan, design, implement, test, review.
+- **`spec`** — Kiro/spec-kit pipeline (`spec-driven-workflow`) for features that need traceability and gated implementation.
+
+```bash
+# PRD track (default)
+/ecc:workflow start "dark mode toggle"
+/ecc:workflow advance        # move to the next phase
+
+# Spec track — scaffolds specs/<NNN-feature>/ and links the workflow record
+/ecc:workflow start "user auth" --track spec --description "Build OAuth2 login"
+```
+
+Both tracks are surfaced together in `/ecc:workflow list` and injected at session start (along with a standing GateGuard + spec-gate reminder).
+
+#### Spec track via `/spec` (alias)
+
+`/spec` is the direct alias into the spec track:
 
 ```bash
 /spec constitution Establish testing and security principles

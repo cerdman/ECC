@@ -6,6 +6,12 @@ origin: ECC
 
 # AI-Augmented Engineering Workflow
 
+This skill is the **`prd` track of `/ecc:workflow`** (the default track;
+`/ecc:workflow start "<name>"` or `/workflow`). For durable specs with
+cross-document ID traceability (FR-/SC-/DES-/T###) and gated implementation,
+use the **`spec` track** (`/ecc:workflow start "<name>" --track spec`), backed
+by the `spec-driven-workflow` skill.
+
 A feature pipeline that front-loads requirements clarification and planning
 (where AI leverage is highest) and keeps implementation lean. Every phase
 delegates to an existing ECC agent or command and writes its business context

@@ -10,6 +10,9 @@
  * .claude/workflows/ in the current project.
  */
 
+const fs = require('fs');
+const path = require('path');
+
 const {
   STAGES,
   createWorkflow,
@@ -22,12 +25,47 @@ const {
   summarizeWorkflows
 } = require('./lib/workflow-state');
 
-const VALUE_FLAGS = new Set(['--description', '--status', '--agent', '--artifact', '--note', '--phase', '--dir', '--max-chars']);
+let specLib = null;
+function getSpecLib() {
+  if (specLib === null) {
+    try {
+      specLib = require('./spec-kit/lib');
+    } catch (_error) {
+      specLib = false;
+    }
+  }
+  return specLib || null;
+}
+
+/**
+ * Mirror a spec-track workflow's current phase into its linked
+ * specs/<id>/.state.json. Only the human-facing `phase` is written; the
+ * guard-critical fields (active, gate.confirm) stay owned by the spec lane.
+ */
+function mirrorSpecPhase(workflow) {
+  if (!workflow || workflow.track !== 'spec' || !workflow.spec || !workflow.spec.featureDir) {
+    return;
+  }
+  const lib = getSpecLib();
+  if (!lib) return;
+  try {
+    const phase = currentPhase(workflow);
+    const state = lib.readState(workflow.spec.featureDir);
+    if (!state || !phase) return;
+    if (state.phase !== phase.id) {
+      lib.writeState(workflow.spec.featureDir, { ...state, phase: phase.id });
+    }
+  } catch (_error) {
+    // Mirroring is best-effort; never fail the workflow command for it.
+  }
+}
+
+const VALUE_FLAGS = new Set(['--description', '--status', '--agent', '--artifact', '--note', '--phase', '--dir', '--max-chars', '--track', '--feature']);
 
 function showHelp(exitCode = 0) {
   console.log(`
 Usage:
-  node scripts/workflow.js start <name> [--description <text>] [--no-design] [--json]
+  node scripts/workflow.js start <name> [--track <prd|spec>] [--description <text>] [--no-design] [--json]
   node scripts/workflow.js list [--all] [--json]
   node scripts/workflow.js show <id> [--json]
   node scripts/workflow.js advance <id> [--artifact <path>] [--note <text>] [--json]
@@ -35,13 +73,16 @@ Usage:
   node scripts/workflow.js memory <id> --note <text> [--phase <phase>] [--json]
   node scripts/workflow.js summary [--all] [--max-chars <n>]
 
-Track the AI-augmented engineering workflow (requirements, discovery, PRD,
-tech plan, design, implement, test, review) across multiple concurrent
-features with per-phase agent assignments and a memory log.
+Track engineering workflows across two pipelines (tracks):
+  prd  (default) — requirements, discovery, PRD, tech plan, design, implement, test, review
+  spec           — Kiro/spec-kit: research, constitution, specify, clarify, design,
+                   tasks, trace, analyze, confirm, implement, verify (creates specs/<id>/)
 
 Options:
-  --description <text>  Workflow description for start
-  --no-design           Skip the wireframes/mockups phase (non-UI work)
+  --track <t>           Pipeline track: prd (default) | spec
+  --feature <id|dir>    Spec track: link an existing specs/<id>/ instead of scaffolding a new one
+  --description <text>  Workflow description for start (spec track: the feature description)
+  --no-design           Skip the wireframes/mockups phase (prd track, non-UI work)
   --status <s>          Phase status: pending | active | done | skipped
   --agent <name>        Record an agent assignment on a phase (repeatable)
   --artifact <path>     Record an artifact (PRD, plan, mockup, PR, ...)
@@ -99,9 +140,12 @@ function phaseLine(phase) {
 }
 
 function printWorkflow(workflow) {
-  console.log(`${workflow.name} [${workflow.id}] — ${workflow.status}`);
+  console.log(`${workflow.name} [${workflow.id}] — ${workflow.status} (track: ${workflow.track || 'prd'})`);
   if (workflow.description) {
     console.log(`  ${workflow.description}`);
+  }
+  if (workflow.spec) {
+    console.log(`  spec: ${workflow.spec.featureId}`);
   }
   for (const phase of workflow.phases) {
     console.log(phaseLine(phase));
@@ -127,13 +171,49 @@ function main() {
     switch (command) {
       case 'start': {
         const name = parsed.positional.join(' ');
-        const workflow = createWorkflow(name, {
+        const track = parsed.flags.track === 'spec' ? 'spec' : 'prd';
+        const createOpts = {
           ...options,
+          track,
           description: parsed.flags.description,
           design: parsed.flags['no-design'] ? false : undefined
-        });
+        };
+
+        if (track === 'spec') {
+          const lib = getSpecLib();
+          if (!lib) {
+            console.error('Spec track requires scripts/spec-kit/lib.js (spec-driven-workflow). Not found.');
+            process.exit(1);
+          }
+          if (parsed.flags.feature) {
+            // Link an already-scaffolded feature (e.g. created via /spec specify)
+            // instead of scaffolding a new one.
+            const ref = String(parsed.flags.feature);
+            const repoRoot = lib.findRepoRoot(process.cwd());
+            const featureDir = path.isAbsolute(ref) ? ref : path.join(lib.specsRoot(repoRoot), path.basename(ref));
+            if (!fs.existsSync(featureDir)) {
+              console.error(`Spec feature not found: ${ref} (looked in ${featureDir})`);
+              process.exit(1);
+            }
+            const state = lib.readState(featureDir);
+            createOpts.spec = {
+              featureId: (state && state.feature) || path.basename(featureDir),
+              featureDir
+            };
+          } else {
+            const featureDescription = (parsed.flags.description && String(parsed.flags.description).trim()) || name;
+            const created = lib.createFeature(featureDescription, { shortName: name });
+            createOpts.spec = { featureId: created.featureId, featureDir: created.featureDir };
+          }
+        }
+
+        const workflow = createWorkflow(name, createOpts);
+        mirrorSpecPhase(workflow);
         emit(parsed, workflow, wf => {
-          console.log(`Started workflow ${wf.id}`);
+          console.log(`Started ${wf.track} workflow ${wf.id}`);
+          if (wf.spec) {
+            console.log(`  spec feature: ${wf.spec.featureId} (${wf.spec.featureDir})`);
+          }
           printWorkflow(wf);
         });
         break;
@@ -147,7 +227,7 @@ function main() {
           }
           for (const workflow of list) {
             const phase = currentPhase(workflow);
-            console.log(`${workflow.id} — ${workflow.name} (${workflow.status}${phase ? `, current: ${phase.id}` : ''})`);
+            console.log(`${workflow.id} — [${workflow.track || 'prd'}] ${workflow.name} (${workflow.status}${phase ? `, current: ${phase.id}` : ''})`);
           }
         });
         break;
@@ -167,6 +247,7 @@ function main() {
           artifact: parsed.flags.artifact,
           note: parsed.flags.note
         });
+        mirrorSpecPhase(workflow);
         emit(parsed, workflow, wf => {
           const phase = currentPhase(wf);
           console.log(phase ? `Advanced ${wf.id} to phase: ${phase.id}` : `Workflow ${wf.id} is done`);

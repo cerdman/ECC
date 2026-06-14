@@ -1,0 +1,138 @@
+{
+  "id": "wf-20260614-encoder-review",
+  "name": "encoder-review",
+  "description": "",
+  "status": "active",
+  "createdAt": "2026-06-14T06:25:46.133Z",
+  "updatedAt": "2026-06-14T06:32:44.548Z",
+  "phases": [
+    {
+      "id": "requirements",
+      "name": "Define high-level business requirements",
+      "stage": "requirements",
+      "role": "stakeholders + engineer",
+      "gate": false,
+      "status": "active",
+      "agents": [
+        "planner"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": "2026-06-14T06:25:46.133Z",
+      "completedAt": null
+    },
+    {
+      "id": "discovery",
+      "name": "Understand how the current system works",
+      "stage": "requirements",
+      "role": "engineer",
+      "gate": false,
+      "status": "pending",
+      "agents": [
+        "code-explorer"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "prd",
+      "name": "Create a plan (PRD) digestible for technical and non-technical readers",
+      "stage": "planning",
+      "role": "engineer",
+      "gate": true,
+      "status": "pending",
+      "agents": [
+        "planner"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "tech-plan",
+      "name": "Create technical implementation plan",
+      "stage": "planning",
+      "role": "engineer",
+      "gate": false,
+      "status": "pending",
+      "agents": [
+        "architect"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "design",
+      "name": "Create wireframes / mockups / on-brand components",
+      "stage": "planning",
+      "role": "design engineer",
+      "gate": false,
+      "status": "skipped",
+      "agents": [],
+      "artifacts": [],
+      "notes": [
+        "Non-UI work; user chose to skip"
+      ],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "implement",
+      "name": "Implement",
+      "stage": "implementation",
+      "role": "engineer",
+      "gate": false,
+      "status": "pending",
+      "agents": [
+        "tdd-guide"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "test",
+      "name": "Test changes",
+      "stage": "review",
+      "role": "engineer",
+      "gate": false,
+      "status": "pending",
+      "agents": [
+        "e2e-runner"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "review",
+      "name": "Code review",
+      "stage": "review",
+      "role": "engineer",
+      "gate": true,
+      "status": "pending",
+      "agents": [
+        "code-reviewer",
+        "security-reviewer"
+      ],
+      "artifacts": [],
+      "notes": [],
+      "startedAt": null,
+      "completedAt": null
+    }
+  ],
+  "memory": [
+    {
+      "at": "2026-06-14T06:32:40.564Z",
+      "phase": "requirements",
+      "note": "Goal: Review/audit an encoder component in the codebase for correctness, security, or performance issues. Non-goal: No new features or dependencies. Acceptance criteria: Written findings report listing issues, risks, and recommendations. Design phase: skipped (non-UI work)."
+    }
+  ]
+}

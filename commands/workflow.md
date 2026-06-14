@@ -1,16 +1,25 @@
 ---
-description: Run the AI-augmented engineering workflow — requirements, discovery, PRD, tech plan, design, implement, test, review — with persistent multi-workflow state and per-phase memory.
-argument-hint: "[start <name> [--no-design] | status [id] | advance [id] | memory <note> | list]"
+description: Guided ECC engineering workflow with two tracks — prd (requirements, discovery, PRD, tech plan, design, implement, test, review) and spec (Kiro/spec-kit: constitution, spec, design, tasks, trace, analyze, confirm, implement, verify) — with persistent multi-workflow state and per-phase memory.
+argument-hint: "[start <name> [--track prd|spec] [--no-design] | status [id] | advance [id] | memory <note> | list]"
 ---
 
 # Workflow Command
 
-Drive a feature through the `ai-augmented-workflow` skill's seven-step
-pipeline, with state and memory persisted under `.claude/workflows/` so
-multiple features and multiple agents can be tracked across sessions.
+`/ecc:workflow` (alias `/workflow`) is the single guided entry for ECC
+feature work. It drives a feature through one of two **tracks**, with state
+and memory persisted under `.claude/workflows/` so multiple features and
+multiple agents can be tracked across sessions:
 
-Read `skills/ai-augmented-workflow/SKILL.md` for the phase definitions, agent
-map, gates, and memory contract before acting.
+- **`prd`** (default) — the `ai-augmented-workflow` skill's eight-phase
+  pipeline (requirements, discovery, PRD, tech plan, design, implement, test,
+  review). Read `skills/ai-augmented-workflow/SKILL.md`.
+- **`spec`** — the `spec-driven-workflow` skill's Kiro/spec-kit pipeline
+  (research, constitution, specify, clarify, design, tasks, trace, analyze,
+  confirm, implement, verify) with cross-document IDs and gated implementation.
+  Read `skills/spec-driven-workflow/SKILL.md`. `/spec` is an alias into this track.
+
+Read the relevant skill for phase definitions, agent map, gates, and memory
+contract before acting.
 
 ## Setup
 
@@ -25,7 +34,13 @@ node "$ECC_ROOT/scripts/workflow.js" help
 
 Parse `$ARGUMENTS` into one of:
 
-### `start <name> [--no-design] [--description <text>]`
+### `start <name> [--track prd|spec] [--no-design] [--description <text>]`
+
+Default track is `prd`. Choose the track from the user's intent: durable
+specs with requirement traceability and gated implementation -> `spec`;
+PRD-oriented feature with stakeholder docs -> `prd`.
+
+**PRD track (`--track prd`, default):**
 
 1. Create the workflow record:
    `node "$ECC_ROOT/scripts/workflow.js" start "<name>" [--no-design] --json`
@@ -35,6 +50,23 @@ Parse `$ARGUMENTS` into one of:
 3. Follow the skill's pipeline from there, advancing phases with
    `workflow.js advance <id> --note "<outcome>" [--artifact <path>]` and
    honoring both gates (PRD approval; pre-commit review confirmation).
+
+**Spec track (`--track spec`):**
+
+1. Create the workflow record and scaffold the spec feature in one step:
+   `node "$ECC_ROOT/scripts/workflow.js" start "<name>" --track spec --description "<feature description>" --json`
+   This creates `specs/<NNN-name>/` (spec.md + .state.json) and links it on
+   the workflow record.
+2. Read `skills/spec-driven-workflow/SKILL.md` and the matching file under
+   `skills/spec-driven-workflow/commands-src/` (constitution, specify, clarify,
+   design, tasks, trace, analyze, implement) for each phase's instructions.
+3. Drive the artifact chain with `scripts/spec-kit/*` and record each phase
+   transition with `workflow.js advance <id>` (this mirrors the current phase
+   into the feature's `specs/<id>/.state.json`).
+4. The `confirm` gate is the explicit user approval. Implementation edits to
+   files governed by `tasks.md` stay blocked by the spec workflow guard until
+   the user approves (setting `gate.confirm = "approved"` and `active = true`
+   in the feature `.state.json`). Never advance past `confirm` without it.
 
 ### `status [id]`
 
