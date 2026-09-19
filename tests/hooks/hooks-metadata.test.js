@@ -129,6 +129,23 @@ test('withRefreshedFingerprints rewrites fingerprints and rejects reordered meta
   );
 });
 
+test('withRefreshedFingerprints rejects duplicate hook fingerprints as ambiguous', () => {
+  const duplicateConfig = { hooks: { PreToolUse: [alpha, { ...alpha }] } };
+  const duplicateMetadata = {
+    entries: {
+      PreToolUse: [
+        { id: 'a', fingerprint: alphaMeta.fingerprint },
+        { id: 'b', fingerprint: alphaMeta.fingerprint },
+      ],
+    },
+  };
+
+  assert.throws(
+    () => withRefreshedFingerprints(duplicateConfig, duplicateMetadata),
+    /ambiguous|rebinding/i
+  );
+});
+
 test('readHooksConfig rejects misaligned sidecars and returns raw config without one', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ecc-hooks-'));
   const tempHooks = path.join(tempDir, 'hooks.json');

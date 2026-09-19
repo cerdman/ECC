@@ -515,7 +515,12 @@ function runTests() {
 
       const installedBashDispatcherEntry = installedHooks.hooks.PreToolUse.find(entry => entry.id === 'pre:bash:dispatcher');
       assert.ok(installedBashDispatcherEntry, 'hooks/hooks.json should include the consolidated Bash dispatcher hook');
-      assert.ok(!('id' in installedRawHooks.hooks.PreToolUse[0]), 'installed Claude hooks.json should keep matcher ids in the sidecar');
+      for (const [eventName, hookArray] of Object.entries(installedRawHooks.hooks || {})) {
+        for (const entry of hookArray) {
+          assert.ok(!('id' in entry), `${eventName} entries should keep matcher ids in the sidecar`);
+          assert.ok(!('description' in entry), `${eventName} entries should keep descriptions in the sidecar`);
+        }
+      }
       assert.strictEqual(typeof installedBashDispatcherEntry.hooks[0].command, 'string', 'hooks/hooks.json should install string-form commands for Claude Code schema compatibility');
       assert.ok(
         installedBashDispatcherEntry.hooks[0].command.startsWith('node -e '),

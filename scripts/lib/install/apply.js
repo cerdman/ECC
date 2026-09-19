@@ -164,6 +164,7 @@ function applyInstallPlan(plan) {
       'utf8'
     );
     if (resolvedClaudeHooksPlan.metadataDestinationPath && resolvedClaudeHooksPlan.resolvedMetadata) {
+      fs.mkdirSync(path.dirname(resolvedClaudeHooksPlan.metadataDestinationPath), { recursive: true });
       fs.writeFileSync(
         resolvedClaudeHooksPlan.metadataDestinationPath,
         JSON.stringify(resolvedClaudeHooksPlan.resolvedMetadata, null, 2) + '\n',

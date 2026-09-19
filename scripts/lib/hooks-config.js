@@ -188,6 +188,15 @@ function withRefreshedFingerprints(hooksConfig, metadata) {
     });
   }
 
+  for (const [fingerprint, locations] of positions.entries()) {
+    if (locations.length > 1) {
+      throw new Error(
+        `Metadata refresh is ambiguous for duplicate hook fingerprint ${fingerprint} at `
+        + `${locations.join(', ')}; refresh would risk rebinding stable ids`
+      );
+    }
+  }
+
   for (const [event, entries] of Object.entries(entriesByEvent)) {
     if (!Array.isArray(entries)) continue;
     entries.forEach((entry, index) => {
