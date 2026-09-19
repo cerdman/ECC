@@ -3,23 +3,15 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  METADATA_FILENAME,
+  mergeHooksMetadata,
+  metadataPathFor,
+  readJsonObject,
+  withRefreshedFingerprints,
+} = require('../hooks-config');
 const { writeInstallState } = require('../install-state');
 const { filterMcpConfig, parseDisabledMcpServers } = require('../mcp-config');
-
-function readJsonObject(filePath, label) {
-  let parsed;
-  try {
-    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (error) {
-    throw new Error(`Failed to parse ${label} at ${filePath}: ${error.message}`);
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`Invalid ${label} at ${filePath}: expected a JSON object`);
-  }
-
-  return parsed;
-}
 
 function cloneJsonValue(value) {
   if (value === undefined) {
@@ -101,17 +93,29 @@ function buildResolvedClaudeHooks(plan) {
   }
 
   const hooksConfig = readJsonObject(hooksSourcePath, 'hooks config');
+  const metadataSourcePath = metadataPathFor(hooksSourcePath);
   const resolvedHooks = replacePluginRootPlaceholders(hooksConfig.hooks, pluginRoot);
   if (!resolvedHooks || typeof resolvedHooks !== 'object' || Array.isArray(resolvedHooks)) {
     throw new Error(`Invalid hooks config at ${hooksSourcePath}: expected "hooks" to be a JSON object`);
   }
 
+  let resolvedMetadata = null;
+  let metadataDestinationPath = null;
+  if (fs.existsSync(metadataSourcePath)) {
+    const metadata = readJsonObject(metadataSourcePath, METADATA_FILENAME);
+    mergeHooksMetadata(hooksConfig, metadata, hooksSourcePath);
+    resolvedMetadata = withRefreshedFingerprints({ ...hooksConfig, hooks: resolvedHooks }, metadata);
+    metadataDestinationPath = metadataPathFor(hooksDestinationPath);
+  }
+
   return {
     hooksDestinationPath,
+    metadataDestinationPath,
     resolvedHooksConfig: {
       ...hooksConfig,
       hooks: resolvedHooks,
     },
+    resolvedMetadata,
   };
 }
 
@@ -159,6 +163,13 @@ function applyInstallPlan(plan) {
       JSON.stringify(resolvedClaudeHooksPlan.resolvedHooksConfig, null, 2) + '\n',
       'utf8'
     );
+    if (resolvedClaudeHooksPlan.metadataDestinationPath && resolvedClaudeHooksPlan.resolvedMetadata) {
+      fs.writeFileSync(
+        resolvedClaudeHooksPlan.metadataDestinationPath,
+        JSON.stringify(resolvedClaudeHooksPlan.resolvedMetadata, null, 2) + '\n',
+        'utf8'
+      );
+    }
   }
 
   writeInstallState(plan.installStatePath, plan.statePreview);

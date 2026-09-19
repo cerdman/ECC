@@ -14,6 +14,7 @@ const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const hooksJsonPath = path.join(repoRoot, 'hooks', 'hooks.json');
+const { readHooksConfig } = require(path.join(repoRoot, 'scripts', 'lib', 'hooks-config.js'));
 const runWithFlagsPath = path.join(repoRoot, 'scripts', 'hooks', 'run-with-flags.js');
 const observeRunner = require(path.join(repoRoot, 'scripts', 'hooks', 'observe-runner.js'));
 
@@ -30,7 +31,7 @@ function test(name, fn) {
 }
 
 function loadHook(id) {
-  const hookGroups = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8')).hooks;
+  const hookGroups = readHooksConfig(hooksJsonPath).hooks;
   const hooks = Object.values(hookGroups).flat();
   const hook = hooks.find(candidate => candidate.id === id);
   assert.ok(hook, `Expected ${id} in hooks/hooks.json`);

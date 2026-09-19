@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFileSync, spawn, spawnSync } = require('child_process');
+const { readHooksConfig } = require('../../scripts/lib/hooks-config');
 
 const SKIP_BASH = process.platform === 'win32';
 
@@ -2437,7 +2438,7 @@ async function runTests() {
   if (
     test('hooks.json has required event types', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
       assert.ok(hooks.hooks.PreToolUse, 'Should have PreToolUse hooks');
       assert.ok(hooks.hooks.PostToolUse, 'Should have PostToolUse hooks');
@@ -2453,22 +2454,22 @@ async function runTests() {
   if (
     test('hooks.json consolidates Bash hooks into one pre and one post dispatcher', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
-      const preBash = hooks.hooks.PreToolUse.filter(entry => entry.matcher === 'Bash');
-      const postBash = hooks.hooks.PostToolUse.filter(entry => entry.matcher === 'Bash');
+      const preBashDispatcher = hooks.hooks.PreToolUse.find(entry => entry.id === 'pre:bash:dispatcher');
+      const postBashDispatcher = hooks.hooks.PostToolUse.find(entry => entry.id === 'post:bash:dispatcher');
 
-      assert.strictEqual(preBash.length, 1, 'Should have exactly one PreToolUse Bash dispatcher');
-      assert.strictEqual(postBash.length, 1, 'Should have exactly one PostToolUse Bash dispatcher');
-      assert.strictEqual(preBash[0].id, 'pre:bash:dispatcher');
-      assert.strictEqual(postBash[0].id, 'post:bash:dispatcher');
+      assert.ok(preBashDispatcher, 'Should have a PreToolUse Bash dispatcher entry');
+      assert.ok(postBashDispatcher, 'Should have a PostToolUse Bash dispatcher entry');
+      assert.strictEqual(preBashDispatcher.matcher, 'Bash');
+      assert.strictEqual(postBashDispatcher.matcher, 'Bash');
 
-      const preCommand = Array.isArray(preBash[0].hooks[0].command)
-        ? preBash[0].hooks[0].command.join(' ')
-        : preBash[0].hooks[0].command;
-      const postCommand = Array.isArray(postBash[0].hooks[0].command)
-        ? postBash[0].hooks[0].command.join(' ')
-        : postBash[0].hooks[0].command;
+      const preCommand = Array.isArray(preBashDispatcher.hooks[0].command)
+        ? preBashDispatcher.hooks[0].command.join(' ')
+        : preBashDispatcher.hooks[0].command;
+      const postCommand = Array.isArray(postBashDispatcher.hooks[0].command)
+        ? postBashDispatcher.hooks[0].command.join(' ')
+        : postBashDispatcher.hooks[0].command;
 
       assert.ok(preCommand.includes('pre-bash-dispatcher.js'), 'PreToolUse Bash hook should use the pre dispatcher');
       assert.ok(postCommand.includes('post-bash-dispatcher.js'), 'PostToolUse Bash hook should use the post dispatcher');
@@ -2480,7 +2481,7 @@ async function runTests() {
   if (
     test('SessionEnd marker hook is async and cleanup-safe', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
       const sessionEndHooks = hooks.hooks.SessionEnd.flatMap(entry => entry.hooks);
       const markerHook = sessionEndHooks.find(hook => hook.command.includes('session-end-marker.js'));
 
@@ -2495,7 +2496,7 @@ async function runTests() {
   if (
     test('all hook commands use string form for Claude Code schema compatibility', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
       for (const [eventName, hookArray] of Object.entries(hooks.hooks)) {
         for (const entry of hookArray) {
@@ -2516,7 +2517,7 @@ async function runTests() {
   if (
     test('inline hook bootstraps avoid escaped double quotes for Git Bash', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
       for (const [eventName, hookArray] of Object.entries(hooks.hooks)) {
         for (const entry of hookArray) {
@@ -2539,7 +2540,7 @@ async function runTests() {
   if (
     test('all hook commands use node or approved shell wrappers', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
       const checkHooks = hookArray => {
         for (const entry of hookArray) {
@@ -2570,7 +2571,7 @@ async function runTests() {
   if (
     test('SessionStart hook uses safe inline resolver without plugin-tree scanning', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
       const sessionStartHook = hooks.hooks.SessionStart?.[0]?.hooks?.[0];
 
       assert.ok(sessionStartHook, 'Should define a SessionStart hook');
@@ -2600,7 +2601,7 @@ async function runTests() {
   if (
     test('Stop and SessionEnd hooks use the safe inline resolver when plugin root may be unset', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
       const stopHooks = (hooks.hooks.Stop || []).flatMap(entry => entry.hooks || []);
       const sessionEndHooks = (hooks.hooks.SessionEnd || []).flatMap(entry => entry.hooks || []);
 
@@ -2625,7 +2626,7 @@ async function runTests() {
   if (
     test('script references use the safe inline resolver or plugin bootstrap', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
-      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const hooks = readHooksConfig(hooksPath);
 
       const checkHooks = hookArray => {
         for (const entry of hookArray) {

@@ -135,6 +135,10 @@ jobs:
         run: node scripts/ci/validate-hooks.js
         continue-on-error: false
 
+      - name: Check hooks schema keys
+        run: node scripts/ci/check-hooks-schema-keys.js
+        continue-on-error: false
+
       - name: Validate commands
         run: node scripts/ci/validate-commands.js
         continue-on-error: false
