@@ -19,6 +19,10 @@ User request → Claude picks a tool → PreToolUse hook runs → Tool executes 
 Memory persistence lifecycle definitions live in `hooks/memory-persistence/`.
 The executable hook graph remains `hooks/hooks.json`; the memory persistence directory is the stable contract for SessionStart, PreCompact, observation, activity tracking, and SessionEnd behavior.
 
+Stable hook IDs and descriptions now live in `hooks/hooks.metadata.json`, aligned by event and index with `hooks/hooks.json`. Claude Code warns when plugin `hooks.json` files contain loader-unknown keys such as `$schema`, `id`, or `description`, so the executable config carries only loader-supported keys. ECC merges the sidecar back in through `scripts/lib/hooks-config.js`, `node scripts/ci/validate-hooks.js` verifies alignment and fingerprints, and `node scripts/ci/check-hooks-schema-keys.js` rejects any loader-incompatible keys in shipped hook configs.
+
+Each sidecar entry also includes a 12-character SHA-256 `fingerprint` of the matcher entry it describes (matcher plus hook commands). That catches accidental reordering or rebinding instead of silently moving a stable ID to a different hook. When a hook command changes, run `node scripts/ci/validate-hooks.js --update-fingerprints` and commit both files. The updater refuses known fingerprints at different positions and preserves the original sidecar if validation fails.
+
 ## Installing These Hooks Manually
 
 For Claude Code manual installs, do not paste the raw repo `hooks.json` into `~/.claude/settings.json` or copy it directly into `~/.claude/hooks/hooks.json`. The checked-in file is plugin/repo-oriented and is meant to be installed through the ECC installer or loaded as a plugin.

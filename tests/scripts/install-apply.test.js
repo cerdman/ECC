@@ -8,6 +8,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { applyInstallPlan } = require('../../scripts/lib/install/apply');
+const { readHooksConfig } = require('../../scripts/lib/hooks-config');
 
 const SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'install-apply.js');
 const DEFAULT_INSTALL_APPLY_TIMEOUT_MS = process.platform === 'win32' ? 30000 : 10000;
@@ -508,10 +509,18 @@ function runTests() {
       assert.strictEqual(result.code, 0, result.stderr);
 
       const claudeRoot = path.join(homeDir, '.claude');
-      const installedHooks = readJson(path.join(claudeRoot, 'hooks', 'hooks.json'));
+      const installedHooksPath = path.join(claudeRoot, 'hooks', 'hooks.json');
+      const installedHooks = readHooksConfig(installedHooksPath);
+      const installedRawHooks = readJson(installedHooksPath);
 
       const installedBashDispatcherEntry = installedHooks.hooks.PreToolUse.find(entry => entry.id === 'pre:bash:dispatcher');
       assert.ok(installedBashDispatcherEntry, 'hooks/hooks.json should include the consolidated Bash dispatcher hook');
+      for (const [eventName, hookArray] of Object.entries(installedRawHooks.hooks || {})) {
+        for (const entry of hookArray) {
+          assert.ok(!('id' in entry), `${eventName} entries should keep matcher ids in the sidecar`);
+          assert.ok(!('description' in entry), `${eventName} entries should keep descriptions in the sidecar`);
+        }
+      }
       assert.strictEqual(typeof installedBashDispatcherEntry.hooks[0].command, 'string', 'hooks/hooks.json should install string-form commands for Claude Code schema compatibility');
       assert.ok(
         installedBashDispatcherEntry.hooks[0].command.startsWith('node -e '),
