@@ -27,17 +27,17 @@
     "slides"
   ],
   "author": {
-    "name": "Affaan Mustafa",
-    "url": "https://x.com/affaan"
+    "name": "Colin Erdman",
+    "url": "https://x.com/colinerdman"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/affaan-m/ECC.git"
+    "url": "git+https://github.com/cerdman/ECC.git"
   },
-  "homepage": "https://github.com/affaan-m/ECC#readme",
+  "homepage": "https://github.com/cerdman/ECC#readme",
   "bugs": {
-    "url": "https://github.com/affaan-m/ECC/issues"
+    "url": "https://github.com/cerdman/ECC/issues"
   },
   "files": [
     ".agents/",
